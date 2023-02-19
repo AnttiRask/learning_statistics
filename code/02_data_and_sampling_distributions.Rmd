@@ -1,0 +1,171 @@
+---
+title: "Practical Statistics for Data Scientists, Chapter 2: Data and Sampling Distributions"
+author: "Original Code: Bruce, Peter C., Andrew Bruce and Peter Gedeck | Modifications: Antti Rask"
+date: "2023-02-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 2 Data and Sampling Distributions
+
+```{r}
+library(boot)
+library(conflicted)
+#     conflicts_prefer(dplyr::filter)
+# library(corrr)
+# library(crosstable)
+# library(DT)
+# library(gmodels)
+# library(matrixStats)
+library(tidyverse)
+```
+
+## Import the Datasets Needed
+
+```{r}
+loans_income <- read_csv("../data/loans_income.csv") %>% pull()
+sp500_px      <- read_csv("../data/sp500_data.csv.gz") %>% 
+  select(date = ...1, everything())
+```
+
+```{r}
+# Figure 2.1
+
+x <- seq(
+    from   = -3,
+    to     = 3,
+    length = 300
+)
+
+# 1
+tbl <- tibble(x = x, y = dnorm(x))
+
+tbl %>%
+  ggplot(aes(x, y)) +
+  geom_line(color = "blue") +
+  geom_polygon(fill = "blue") +
+  labs(
+      x = NULL,
+      y = NULL
+  ) +
+  theme_void()
+
+# 2
+tbl2 <- tibble(x = rnorm(100))
+
+tbl2 %>%
+  ggplot(aes(x)) +
+  geom_histogram(fill = "red", color = "black", bins = 10) +
+  labs(
+      x = NULL,
+      y = NULL
+  ) +
+  theme_void()
+```
+
+JATKA TÄSTÄ!
+
+```{r}
+## Sampling Distribution of a Statistic
+
+# take a simple random sample
+samp_data <- data.frame(income=sample(loans_income, 1000), 
+                        type='data_dist')
+
+# take a sample of means of 5 values
+samp_mean_05 <- data.frame(
+  income = tapply(sample(loans_income, 1000*5), 
+                  rep(1:1000, rep(5, 1000)), FUN=mean),
+  type = 'mean_of_5')
+
+# take a sample of means of 20 values
+samp_mean_20 <- data.frame(
+  income = tapply(sample(loans_income, 1000*20), 
+                  rep(1:1000, rep(20, 1000)), FUN=mean),
+  type = 'mean_of_20')
+
+# bind the data.frames and convert type to a factor
+income <- rbind(samp_data, samp_mean_05, samp_mean_20)
+income$type <- factor(income$type, 
+                     levels=c('data_dist', 'mean_of_5', 'mean_of_20'),
+                     labels=c('Data', 'Mean of 5', 'Mean of 20'))
+
+ggplot(income, aes(x=income)) +
+  geom_histogram(bins=40) +
+  facet_grid(type ~ .)
+
+## The Bootstrap
+# As the calculation uses random samples, results will vary between runs
+
+stat_fun <- function(x, idx) median(x[idx])
+boot_obj <- boot(loans_income, R=1000, statistic=stat_fun)
+
+boot_obj
+
+## Confidence Intervals
+
+# R version for figure 2-9 not available
+set.seed(5)
+set.seed(7)
+sample20 <- sample(loans_income, 20)
+sampleMean <- mean(sample20)
+
+stat_fun <- function(x, idx) mean(x[idx])
+boot_obj <- boot(sample20, R=500, statistic=stat_fun)
+boot_ci <- boot.ci(boot_obj, conf=0.9, type='basic')
+X <- data.frame(mean=boot_obj$t)
+ci90 <- boot_ci$basic[4:5]
+ci <- data.frame(ci=ci90, y=c(9, 11))
+# ci <- boot_ci$basic[4:5]
+ci
+ggplot(X, aes(x=mean)) +
+    geom_histogram(bins=40, fill='#AAAAAA') +
+    geom_vline(xintercept=sampleMean, linetype=2) +
+    geom_path(aes(x=ci, y=10), data=ci, size=2) +
+    geom_path(aes(x=ci90[1], y=y), data=ci, size=2) +
+    geom_path(aes(x=ci90[2], y=y), data=ci, size=2) +
+    geom_text(aes(x=sampleMean, y=20, label='Sample mean'), size=6) +
+    geom_text(aes(x=sampleMean, y=8, label='90% interval'), size=6) +
+    theme_bw() + 
+    labs(x='', y='Counts')
+
+## Normal Distribution
+### Standard Normal and QQ-Plots
+
+norm_samp <- rnorm(100)
+qqnorm(norm_samp, main='', xlab='Quantile of normal distribution', ylab='z-score')
+abline(a=0, b=1, col='grey')
+
+## Long-Tailed Distributions
+
+nflx <- sp500_px[,'NFLX']
+nflx <- diff(log(nflx[nflx>0]))
+qqnorm(nflx)
+abline(a=0, b=1, col='grey')
+
+## Binomial Distribution
+
+dbinom(x=2, size=5, p=0.1)
+
+pbinom(2, 5, 0.1)
+
+dbinom(x=0, size=200, p=0.02)
+
+## Poisson and Related Distribution
+### Poisson Distributions
+
+rpois(100, lambda=2)
+
+### Exponential Distribution
+
+rexp(n=100, rate=.2)
+
+###  Weibull Distribution
+
+rweibull(100, 1.5, 5000)
+
+```
+
