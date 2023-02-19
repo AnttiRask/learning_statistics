@@ -1,0 +1,325 @@
+# Practical Statistics for Data Scientists (R) ----
+# > (c) 2019 Peter C. Bruce, Andrew Bruce, Peter Gedeck
+
+## 1. Exploratory Data Analysis ----
+
+### Import required packages ----
+library(tidyverse)
+library(DT)
+library(matrixStats)
+library(corrr)
+library(gmodels)
+library(crosstable)
+
+
+# Import the datasets needed ----
+state         <- read_csv("data/state.csv")
+dfw           <- read_csv("data/dfw_airline.csv")
+sp500_px      <- read_csv("data/sp500_data.csv.gz") %>% 
+  select(date = ...1, everything())
+sp500_sym     <- read_csv("data/sp500_sectors.csv")
+kc_tax        <- read_csv("data/kc_tax.csv.gz")
+lc_loans      <- read_csv("data/lc_loans.csv")
+airline_stats <- read_csv("data/airline_stats.csv") %>%
+  mutate(
+    airline = factor(
+      airline, levels = c(
+        "Alaska", "American", "Jet Blue", "Delta", "United", "Southwest"
+      )
+    )
+  )
+
+
+### Estimates of Location ----
+### Example: Location Estimates of Population and Murder Rates
+
+# Table 1-2
+state %>% 
+  mutate(
+    Population = Population %>% scales::number(big.mark = ",")
+  ) %>% 
+  slice_head(n = 8) %>% 
+  datatable(
+    colnames = c("State", "Population", "Murder rate", "Abbreviation")
+  )
+
+state$Population %>% mean()
+state$Population %>% mean(trim = 0.1)
+state$Population %>% median()
+
+# Using {matrixStats}
+state$Murder.Rate %>% weightedMean(w = state$Population)
+state$Murder.Rate %>% weightedMedian(w = state$Population)
+
+
+### Estimates of Variability ----
+
+# Table 1-3
+state %>% 
+  mutate(
+    Population = Population %>% scales::number(big.mark = ",")
+  ) %>% 
+  slice_head(n = 8) %>% 
+  datatable(
+    colnames = c("State", "Population", "Murder rate", "Abbreviation")
+  )
+
+state$Population %>% sd()
+state$Population %>% IQR()
+state$Population %>% mad()
+
+
+### Percentiles and Boxplots ----
+state$Murder.Rate %>%
+  quantile(p = c(.05, .25, .5, .75, .95)) %>%
+  as_tibble(rownames = "percentile")
+
+state %>% 
+  ggplot(aes(Population / 1000000)) +
+  geom_boxplot() +
+  coord_flip() +
+  theme_bw() +
+  labs(
+    x = "Population (millions)"
+  )
+
+
+### Frequency Table and Histograms ----
+cut_interval(
+  state$Population,
+  n = 10,
+  closed = c("left")
+) %>% 
+  table() %>% 
+  as_tibble(rownames = "bin_number") %>% 
+  rename(
+    bin_range = ".",
+    count     = n
+  )
+
+# If we just want to add the bin_range to the state tibble (we do lose the empty bins!):
+state %>% 
+  mutate(
+    bin_range = cut_interval(
+      state$Population,
+      n = 10,
+      closed = c("left")
+    )
+  ) %>% 
+  arrange(desc(Population))
+
+state %>% 
+  ggplot(aes(Population)) +
+  geom_histogram(
+    breaks   = seq(
+      from   = min(state$Population),
+      to     = max(state$Population),
+      length = 11
+    ),
+    color    = "black",
+    fill     = "white"
+  ) +
+  theme_bw()
+
+
+### Density Estimates ----
+# Density is an alternative to histograms that can provide more insight into the distribution of the data points.
+state %>%
+  ggplot(aes(Murder.Rate)) +
+  geom_histogram(
+    aes(y = ..density..),
+    bins  = 12,
+    color = "black",
+    fill  = "white"
+  ) +
+  geom_density(
+    color = "blue",
+    size  = 1.5
+  ) +
+  scale_x_continuous(
+    breaks = seq(0, 10, by = 2),
+  ) +
+  theme_bw() +
+  labs(
+    x = "Murder rate (per 100,000)",
+    y = "Density"
+  )
+
+
+### Exploring Binary and Categorical Data ----
+dfw %>%
+  pivot_longer(cols = everything()) %>% 
+  ggplot(aes(fct_reorder(name, value), value)) +
+  geom_col(
+    color = "black",
+    fill  = "white"
+  ) +
+  coord_flip() +
+  theme_bw() +
+  labs(
+    x = "Cause of Delay",
+    y = "Count"
+  )
+
+
+### Correlation ----
+telecom_vec <- sp500_sym %>%
+  filter(sector == "telecommunications_services") %>%
+  pull(symbol)
+
+telecom <- sp500_px %>%
+  filter(
+    date > "2012-07-01"
+  ) %>% 
+  select(
+    date,
+    all_of(telecom_vec)
+  )
+  
+telecom_cor <- telecom %>%
+  correlate()
+telecom_cor
+
+# Next we focus on funds traded on major exchanges (sector == 'etf'
+etfs_vec <- sp500_sym %>%
+  filter(sector == "etf") %>%
+  pull(symbol)
+
+etfs <- sp500_px %>%
+  filter(
+    date > "2012-07-01"
+  ) %>% 
+  select(
+    date,
+    all_of(etfs_vec)
+  )
+
+etfs %>%
+  correlate() %>% 
+  rplot(print_cor = FALSE)
+
+
+### Scatterplots ----
+
+# plot(telecom$T, telecom$VZ, xlab='T', ylab='VZ', cex=.8)
+telecom %>%
+  ggplot(aes(T, VZ)) +
+  geom_point(alpha = 0.3) +
+  geom_vline(
+    xintercept = 0,
+    color      = "grey"
+    ) +
+  geom_hline(
+    yintercept = 0,
+    color      = "grey"
+    ) +
+  labs(
+    x = "ATT (T)",
+    y = "Verizon (VZ)"
+  )
+
+dim(telecom)
+
+
+### Exploring Two or More Variables ----
+# Filter based on a variety of criteria
+kc_tax0 <- kc_tax %>% 
+  filter(
+    TaxAssessedValue < 750000 &
+      SqFtTotLiving  > 100 &
+      SqFtTotLiving  < 3500
+  )
+nrow(kc_tax0)
+
+
+### Hexagonal binning and Contours ----
+# Plotting numeric versus numeric data
+graph <- kc_tax0 %>% 
+  ggplot(aes(SqFtTotLiving, TaxAssessedValue)) + 
+  stat_binhex(color = "white") +
+  scale_fill_gradient(
+    low  = "white",
+    high = "blue"
+  ) +
+  theme_bw() +
+  labs(
+    x = "Finished Square Feet",
+    y = "Tax-Assessed Value"
+  )
+graph
+
+
+### Visualize as a two-dimensional extension of the density plot ----
+graph_2 <- kc_tax0 %>% 
+  ggplot(aes(SqFtTotLiving, TaxAssessedValue)) +
+  geom_point(
+    color = "blue",
+    alpha = 0.1
+  ) + 
+  geom_density2d(color = "white") +
+  theme_bw() +
+  labs(
+    x = "Finished Square Feet",
+    y = "Tax-Assessed Value"
+  )
+graph_2
+
+
+### Two Categorical Variables ----
+gmodels::CrossTable(
+  lc_loans$grade,
+  lc_loans$status
+)
+
+lc_loans %>%
+  crosstable::crosstable(
+  cols            = grade,
+  by              = status,
+  label           = FALSE,
+  total           = "both",
+  percent_pattern = "{n} ({p_row}/{p_col})",
+  percent_digits  = 1
+) %>%
+  as_flextable(compact = TRUE)
+  
+
+
+### Categorical and Numeric Data ----
+# Boxplots of a column can be grouped by a different column.
+airline_stats %>% 
+  ggplot(aes(pct_carrier_delay, airline), ylim = c(0, 50)) +
+  geom_boxplot() +
+  coord_flip() +
+  theme_bw() +
+  labs(
+    x = "Daily % of Delayed Flights",
+    y = "Airline"
+  )
+
+
+# Variation of boxplots called _violinplot_.
+graph_3 <- airline_stats %>% 
+  ggplot(aes(airline, pct_carrier_delay)) +
+  geom_violin(draw_quantiles = c(.25,.5,.75), linetype = 2) +
+  geom_violin(fill = NA, size = 1.1) +
+  coord_cartesian(ylim = c(0, 50)) +
+  theme_bw() +
+  labs(
+    x = "",
+    y = "Daily % of Delayed Flights")
+graph_3
+
+
+### Visualizing Multiple Variables ----
+graph_4 <- kc_tax0 %>%
+  filter(ZipCode %in% c(98188, 98105, 98108, 98126)) %>%
+  ggplot(aes(SqFtTotLiving, TaxAssessedValue)) +
+  stat_binhex(colour = "white") +
+  scale_fill_gradient(low = "gray95", high = "black") +
+  theme_bw() +
+  labs(
+    x = "Finished Square Feet",
+    y = "Tax-Assessed Value"
+  ) +
+  facet_wrap("ZipCode")
+graph_4
