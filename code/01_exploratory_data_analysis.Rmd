@@ -19,6 +19,7 @@ library(crosstable)
 library(DT)
 library(gmodels)
 library(matrixStats)
+library(scales)
 library(tidyverse)
 ```
 
@@ -33,13 +34,9 @@ sp500_sym     <- read_csv("data/sp500_sectors.csv")
 kc_tax        <- read_csv("data/kc_tax.csv.gz")
 lc_loans      <- read_csv("data/lc_loans.csv")
 airline_stats <- read_csv("data/airline_stats.csv") %>%
-  mutate(
-    airline = factor(
-      airline, levels = c(
-        "Alaska", "American", "Jet Blue", "Delta", "United", "Southwest"
-      )
-    )
-  )
+  mutate(airline = factor(airline, levels = c(
+      "Alaska", "American", "Jet Blue", "Delta", "United", "Southwest"
+      )))
 ```
 
 ## Estimates of Location
@@ -47,8 +44,6 @@ airline_stats <- read_csv("data/airline_stats.csv") %>%
 ### Example: Location Estimates of Population and Murder Rates
 
 ```{r}
-library(scales)
-
 # Table 1-2
 state %>%
   mutate(Population = Population %>% number(big.mark = ",")) %>%
@@ -69,8 +64,6 @@ state$Murder.Rate %>% weightedMedian(w = state$Population)
 ## Estimates of Variability
 
 ```{r}
-library(scales)
-
 # Table 1-3
 state %>% 
   mutate(Population = Population %>% number(big.mark = ",")) %>%
