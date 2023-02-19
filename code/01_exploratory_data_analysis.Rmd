@@ -1,18 +1,30 @@
-# Practical Statistics for Data Scientists (R) ----
-# > (c) 2019 Peter C. Bruce, Andrew Bruce, Peter Gedeck
+---
+title: "Practical Statistics for Data Scientists, Chapter 1: Exploratory Data Analysis"
+author: "Original Code: Bruce, Peter C., Andrew Bruce and Peter Gedeck | Modifications: Antti Rask"
+date: "2023-02-20"
+output: html_document
+---
 
-## 1. Exploratory Data Analysis ----
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-### Import required packages ----
-library(tidyverse)
-library(DT)
-library(matrixStats)
+# 1 Exploratory Data Analysis
+
+```{r}
+library(conflicted)
+    conflicts_prefer(dplyr::filter)
 library(corrr)
-library(gmodels)
 library(crosstable)
+library(DT)
+library(gmodels)
+library(matrixStats)
+library(tidyverse)
+```
 
+## Import the Datasets Needed
 
-# Import the datasets needed ----
+```{r}
 state         <- read_csv("data/state.csv")
 dfw           <- read_csv("data/dfw_airline.csv")
 sp500_px      <- read_csv("data/sp500_data.csv.gz") %>% 
@@ -28,21 +40,23 @@ airline_stats <- read_csv("data/airline_stats.csv") %>%
       )
     )
   )
+```
 
+## Estimates of Location
 
-### Estimates of Location ----
 ### Example: Location Estimates of Population and Murder Rates
 
-# Table 1-2
-state %>% 
-  mutate(
-    Population = Population %>% scales::number(big.mark = ",")
-  ) %>% 
-  slice_head(n = 8) %>% 
-  datatable(
-    colnames = c("State", "Population", "Murder rate", "Abbreviation")
-  )
+```{r}
+library(scales)
 
+# Table 1-2
+state %>%
+  mutate(Population = Population %>% number(big.mark = ",")) %>%
+  slice_head(n = 8) %>%
+  datatable(colnames = c("State", "Population", "Murder rate", "Abbreviation"))
+```
+
+```{r}
 state$Population %>% mean()
 state$Population %>% mean(trim = 0.1)
 state$Population %>% median()
@@ -50,26 +64,29 @@ state$Population %>% median()
 # Using {matrixStats}
 state$Murder.Rate %>% weightedMean(w = state$Population)
 state$Murder.Rate %>% weightedMedian(w = state$Population)
+```
 
+## Estimates of Variability
 
-### Estimates of Variability ----
+```{r}
+library(scales)
 
 # Table 1-3
 state %>% 
-  mutate(
-    Population = Population %>% scales::number(big.mark = ",")
-  ) %>% 
-  slice_head(n = 8) %>% 
-  datatable(
-    colnames = c("State", "Population", "Murder rate", "Abbreviation")
-  )
+  mutate(Population = Population %>% number(big.mark = ",")) %>%
+  slice_head(n = 8) %>%
+  datatable(colnames = c("State", "Population", "Murder rate", "Abbreviation"))
+```
 
+```{r}
 state$Population %>% sd()
 state$Population %>% IQR()
 state$Population %>% mad()
+```
 
+## Percentiles and Boxplots
 
-### Percentiles and Boxplots ----
+```{r}
 state$Murder.Rate %>%
   quantile(p = c(.05, .25, .5, .75, .95)) %>%
   as_tibble(rownames = "percentile")
@@ -79,15 +96,15 @@ state %>%
   geom_boxplot() +
   coord_flip() +
   theme_bw() +
-  labs(
-    x = "Population (millions)"
-  )
+  labs(x = "Population (millions)")
+```
 
+## Frequency Table and Histograms
 
-### Frequency Table and Histograms ----
+```{r}
 cut_interval(
   state$Population,
-  n = 10,
+  n      = 10,
   closed = c("left")
 ) %>% 
   table() %>% 
@@ -102,12 +119,14 @@ state %>%
   mutate(
     bin_range = cut_interval(
       state$Population,
-      n = 10,
+      n      = 10,
       closed = c("left")
     )
   ) %>% 
   arrange(desc(Population))
+```
 
+```{r}
 state %>% 
   ggplot(aes(Population)) +
   geom_histogram(
@@ -120,9 +139,11 @@ state %>%
     fill     = "white"
   ) +
   theme_bw()
+```
 
+## Density Estimates
 
-### Density Estimates ----
+```{r}
 # Density is an alternative to histograms that can provide more insight into the distribution of the data points.
 state %>%
   ggplot(aes(Murder.Rate)) +
@@ -133,8 +154,8 @@ state %>%
     fill  = "white"
   ) +
   geom_density(
-    color = "blue",
-    size  = 1.5
+    color      = "blue",
+    linewidth  = 1.5
   ) +
   scale_x_continuous(
     breaks = seq(0, 10, by = 2),
@@ -144,9 +165,11 @@ state %>%
     x = "Murder rate (per 100,000)",
     y = "Density"
   )
+```
 
+## Exploring Binary and Categorical Data
 
-### Exploring Binary and Categorical Data ----
+```{r}
 dfw %>%
   pivot_longer(cols = everything()) %>% 
   ggplot(aes(fct_reorder(name, value), value)) +
@@ -160,9 +183,11 @@ dfw %>%
     x = "Cause of Delay",
     y = "Count"
   )
+```
 
+## Correlation
 
-### Correlation ----
+```{r}
 telecom_vec <- sp500_sym %>%
   filter(sector == "telecommunications_services") %>%
   pull(symbol)
@@ -197,10 +222,11 @@ etfs <- sp500_px %>%
 etfs %>%
   correlate() %>% 
   rplot(print_cor = FALSE)
+```
 
+## Scatterplots
 
-### Scatterplots ----
-
+```{r}
 # plot(telecom$T, telecom$VZ, xlab='T', ylab='VZ', cex=.8)
 telecom %>%
   ggplot(aes(T, VZ)) +
@@ -219,9 +245,11 @@ telecom %>%
   )
 
 dim(telecom)
+```
 
+## Exploring Two or More Variables
 
-### Exploring Two or More Variables ----
+```{r}
 # Filter based on a variety of criteria
 kc_tax0 <- kc_tax %>% 
   filter(
@@ -229,10 +257,13 @@ kc_tax0 <- kc_tax %>%
       SqFtTotLiving  > 100 &
       SqFtTotLiving  < 3500
   )
+
 nrow(kc_tax0)
+```
 
+## Hexagonal Binning and Contours
 
-### Hexagonal binning and Contours ----
+```{r}
 # Plotting numeric versus numeric data
 graph <- kc_tax0 %>% 
   ggplot(aes(SqFtTotLiving, TaxAssessedValue)) + 
@@ -246,45 +277,54 @@ graph <- kc_tax0 %>%
     x = "Finished Square Feet",
     y = "Tax-Assessed Value"
   )
+
 graph
+```
 
+## Visualize as a Two-Dimensional Extension of the Density Plot
 
-### Visualize as a two-dimensional extension of the density plot ----
+```{r}
 graph_2 <- kc_tax0 %>% 
   ggplot(aes(SqFtTotLiving, TaxAssessedValue)) +
   geom_point(
     color = "blue",
     alpha = 0.1
-  ) + 
+  ) +
   geom_density2d(color = "white") +
   theme_bw() +
   labs(
     x = "Finished Square Feet",
     y = "Tax-Assessed Value"
   )
+
 graph_2
+```
 
+## Two Categorical Variables
 
-### Two Categorical Variables ----
-gmodels::CrossTable(
+```{r}
+CrossTable(
   lc_loans$grade,
   lc_loans$status
 )
+```
 
+```{r, warning=FALSE}
 lc_loans %>%
-  crosstable::crosstable(
-  cols            = grade,
-  by              = status,
-  label           = FALSE,
-  total           = "both",
-  percent_pattern = "{n} ({p_row}/{p_col})",
-  percent_digits  = 1
-) %>%
-  as_flextable(compact = TRUE)
-  
+  crosstable(
+      cols            = grade,
+      by              = status,
+      label           = FALSE,
+      total           = "both",
+      percent_pattern = "{n} ({p_row}/{p_col})",
+      percent_digits  = 1
+  ) %>%
+    as_flextable(compact = TRUE)
+```
 
+## Categorical and Numeric Data
 
-### Categorical and Numeric Data ----
+```{r}
 # Boxplots of a column can be grouped by a different column.
 airline_stats %>% 
   ggplot(aes(pct_carrier_delay, airline), ylim = c(0, 50)) +
@@ -296,7 +336,6 @@ airline_stats %>%
     y = "Airline"
   )
 
-
 # Variation of boxplots called _violinplot_.
 graph_3 <- airline_stats %>% 
   ggplot(aes(airline, pct_carrier_delay)) +
@@ -307,10 +346,13 @@ graph_3 <- airline_stats %>%
   labs(
     x = "",
     y = "Daily % of Delayed Flights")
+
 graph_3
+```
 
+## Visualizing Multiple Variables
 
-### Visualizing Multiple Variables ----
+```{r}
 graph_4 <- kc_tax0 %>%
   filter(ZipCode %in% c(98188, 98105, 98108, 98126)) %>%
   ggplot(aes(SqFtTotLiving, TaxAssessedValue)) +
@@ -321,5 +363,7 @@ graph_4 <- kc_tax0 %>%
     x = "Finished Square Feet",
     y = "Tax-Assessed Value"
   ) +
-  facet_wrap("ZipCode")
+  facet_wrap(vars(ZipCode))
+
 graph_4
+```
