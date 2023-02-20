@@ -28,7 +28,7 @@ library(tidyverse)
 ```{r}
 loans_income <- read_csv("../data/loans_income.csv") %>% pull()
 sp500_px      <- read_csv("../data/sp500_data.csv.gz") %>% 
-  select(date = ...1, everything())
+    select(date = ...1, everything())
 ```
 
 ```{r}
@@ -44,59 +44,81 @@ x <- seq(
 tbl <- tibble(x = x, y = dnorm(x))
 
 tbl %>%
-  ggplot(aes(x, y)) +
-  geom_line(color = "blue") +
-  geom_polygon(fill = "blue") +
-  labs(
-      x = NULL,
-      y = NULL
-  ) +
-  theme_void()
+    ggplot(aes(x, y)) +
+    geom_line(color = "blue") +
+    geom_polygon(fill = "blue") +
+    labs(
+        x = NULL,
+        y = NULL
+    ) +
+    theme_void()
 
 # 2
 tbl2 <- tibble(x = rnorm(100))
 
 tbl2 %>%
-  ggplot(aes(x)) +
-  geom_histogram(fill = "red", color = "black", bins = 10) +
-  labs(
-      x = NULL,
-      y = NULL
-  ) +
-  theme_void()
+    ggplot(aes(x)) +
+    geom_histogram(fill = "red", color = "black", bins = 10) +
+    labs(
+        x = NULL,
+        y = NULL
+    ) +
+    theme_void()
+```
+
+## Sampling Distribution of a Statistic
+
+```{r}
+# take a simple random sample
+samp_data <- tibble(
+    income = sample(loans_income, 1000),
+    type='data_dist'
+)
+
+# take a sample of means of 5 values
+sample <- sample(loans_income, 1000 * 5)
+rep    <- rep(1:1000, rep(5, 1000))
+
+samp_mean_05 <- tibble(sample, rep) %>%
+    summarize(
+        income = mean(sample),
+        .by    = rep
+    ) %>%
+    mutate(type = 'mean_of_5') %>% 
+    select(-rep)
+
+# take a sample of means of 20 values
+sample2 <- sample(loans_income, 1000 * 20)
+rep2    <- rep(1:1000, rep(20, 1000))
+
+samp_mean_20 <- tibble(sample2, rep2) %>%
+    summarize(
+        income = mean(sample2),
+        .by    = rep2
+    ) %>%
+    mutate(type = 'mean_of_20') %>% 
+    select(-rep2)
+
+# bind the data.frames and convert type to a factor
+income  <- bind_rows(samp_data, samp_mean_05, samp_mean_20)
+income2 <- income %>% 
+    mutate(
+        type = factor(
+            type,
+            levels = c('data_dist', 'mean_of_5', 'mean_of_20'),
+            labels = c('Data', 'Mean of 5', 'Mean of 20')
+        )
+    )
+
+income2 %>%
+    ggplot(aes(income)) +
+    geom_histogram(bins = 40) +
+    facet_grid(vars(type))
 ```
 
 JATKA TÄSTÄ!
 
 ```{r}
-## Sampling Distribution of a Statistic
-
-# take a simple random sample
-samp_data <- data.frame(income=sample(loans_income, 1000), 
-                        type='data_dist')
-
-# take a sample of means of 5 values
-samp_mean_05 <- data.frame(
-  income = tapply(sample(loans_income, 1000*5), 
-                  rep(1:1000, rep(5, 1000)), FUN=mean),
-  type = 'mean_of_5')
-
-# take a sample of means of 20 values
-samp_mean_20 <- data.frame(
-  income = tapply(sample(loans_income, 1000*20), 
-                  rep(1:1000, rep(20, 1000)), FUN=mean),
-  type = 'mean_of_20')
-
-# bind the data.frames and convert type to a factor
-income <- rbind(samp_data, samp_mean_05, samp_mean_20)
-income$type <- factor(income$type, 
-                     levels=c('data_dist', 'mean_of_5', 'mean_of_20'),
-                     labels=c('Data', 'Mean of 5', 'Mean of 20'))
-
-ggplot(income, aes(x=income)) +
-  geom_histogram(bins=40) +
-  facet_grid(type ~ .)
-
 ## The Bootstrap
 # As the calculation uses random samples, results will vary between runs
 
