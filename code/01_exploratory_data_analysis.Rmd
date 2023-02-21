@@ -198,7 +198,7 @@ telecom_cor <- telecom %>%
   correlate()
 telecom_cor
 
-# Next we focus on funds traded on major exchanges (sector == 'etf'
+# Next we focus on funds traded on major exchanges (sector == 'etf')
 etfs_vec <- sp500_sym %>%
   filter(sector == "etf") %>%
   pull(symbol)
