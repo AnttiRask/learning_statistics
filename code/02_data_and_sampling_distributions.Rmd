@@ -1,7 +1,7 @@
 ---
 title: "Practical Statistics for Data Scientists, Chapter 2: Data and Sampling Distributions"
 author: "Original Code: Bruce, Peter C., Andrew Bruce and Peter Gedeck | Modifications: Antti Rask"
-date: "2023-02-20"
+date: "2023-02-22"
 output: html_document
 ---
 
@@ -14,12 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(boot)
 library(conflicted)
-#     conflicts_prefer(dplyr::filter)
-# library(corrr)
-# library(crosstable)
-# library(DT)
-# library(gmodels)
-# library(matrixStats)
+    conflicts_prefer(dplyr::filter)
 library(tidyverse)
 ```
 
@@ -115,6 +110,34 @@ income %>%
     facet_grid(vars(type))
 ```
 
+```{r}
+# EXTRA: Let's turn it into a function!
+
+calculate_sample_mean <- function(data, n) {
+    
+    if (n > 50) {
+        .replace = TRUE
+    } else {
+        .replace = FALSE
+    }
+    
+    sample <- sample(loans_income, 1000 * n, replace = .replace)
+    rep    <- rep(1:1000, rep(n, 1000))
+    
+    sample_mean <- tibble(sample, rep) %>%
+        summarize(
+            income = mean(sample),
+            .by    = rep
+        ) %>%
+        mutate(type = str_glue("mean_of_{n}")) %>% 
+        select(-rep)
+        
+    sample_mean
+}
+
+calculate_sample_mean("loans_income", 10)
+```
+
 ## The Bootstrap
 
 ```{r}
@@ -130,7 +153,7 @@ boot_obj
 ## Confidence Intervals
 
 ```{r}
-# R version for figure 2-9 not available
+# figure 2-9 
 set.seed(7)
 sample20   <- sample(loans_income, 20)
 sampleMean <- mean(sample20)
@@ -138,69 +161,108 @@ stat_fun   <- function(x, idx) mean(x[idx])
 boot_obj   <- boot(sample20, R = 500, statistic = stat_fun)
 boot_ci    <- boot.ci(boot_obj, conf = 0.9, type = "basic")
 x          <- tibble(mean = boot_obj$t)
-ci90       <- boot_ci$basic[4:5]
-ci         <- tibble(ci = ci90, y = c(9, 11))
-ci
+ci90       <- tibble(ci = boot_ci$basic[4:5])
+ci90_min   <- ci90$ci[1] 
+ci90_max   <- ci90$ci[2]
 
 x %>%
     ggplot(aes(mean)) +
     geom_histogram(bins = 40, fill="#AAAAAA") +
     geom_vline(xintercept = sampleMean, linetype = 2) +
-    geom_segment(
-        aes(
-            x    = ci$ci[1],
-            y    = 10,
-            xend = ci$ci[2],
-            yend = 10
+    geom_path(aes(ci, 40), data = ci90, linewidth = 1.5) +
+    geom_path(aes(ci[1], c(0, 45)), data = ci90, linewidth = 1.5) +
+    geom_path(aes(ci[2], c(0, 45)), data = ci90, linewidth = 1.5) +
+    geom_label(
+        aes(sampleMean, 8, label = str_glue(
+                "Sample mean:
+                {round(sampleMean)}"
+            )
         ),
-        linewidth = 2
+        size          = 5,
+        label.padding = unit(0.5, "lines")
     ) +
-    geom_text(aes(x = sampleMean, y = 20, label = "Sample mean"), size = 6) +
-    geom_text(aes(x = (ci$ci[1] + ci$ci[2]) / 2, y = 8, label = "90% interval"), size = 6) +
-    theme_bw() + 
+    geom_label(
+        aes(sampleMean, 44, label = "90% interval"),
+        size          = 5,
+        label.padding = unit(0.5, "lines")
+    ) +
+    annotate(
+        "text",
+        x     = ci90_min,
+        y     = 45,
+        label = round(ci90_min),
+        size  = 6,
+        vjust = -1.1
+    ) +
+    annotate(
+        "text",
+        x     = ci90_max,
+        y     = 45,
+        label = round(ci90_max),
+        size  = 6,
+        vjust = -1.1
+    ) +
+    scale_y_continuous(expand = c(0, 0), limits = c(0, 60)) +
+    theme_classic() +
     labs(x = "", y = "Counts")
 ```
 
 ## Normal Distribution
 
-JATKA TÄSTÄ!
+### Standard Normal and QQ-Plots
 
 ```{r}
-### Standard Normal and QQ-Plots
-norm_samp <- rnorm(100)
-qqnorm(norm_samp, main="", xlab="Quantile of normal distribution", ylab="z-score")
-abline(a=0, b=1, col="grey")
+rnorm(100) %>%
+    as_tibble() %>%
+    ggplot() +
+    stat_qq(aes(sample = value)) +
+    geom_abline(slope = 1, intercept = 0, color = "grey") +
+    labs(
+        x = "Quantile of normal distribution",
+        y = "z-score"
+    )
 ```
 
-
-```{r}
 ## Long-Tailed Distributions
 
-nflx <- sp500_px[,"NFLX"]
-nflx <- diff(log(nflx[nflx>0]))
-qqnorm(nflx)
-abline(a=0, b=1, col="grey")
+```{r}
+nflx <- sp500_px %>% 
+    select(NFLX) %>%
+    filter(NFLX > 0) %>%
+    reframe(nflx = diff(log(NFLX)))
+
+nflx %>%
+    ggplot(aes(sample = nflx)) +
+    stat_qq() +
+    geom_abline(slope = 1, intercept = 0, color = "grey")
+```
 
 ## Binomial Distribution
 
-dbinom(x=2, size=5, p=0.1)
+```{r}
+dbinom(x = 2, size = 5, p = 0.1)
 
 pbinom(2, 5, 0.1)
 
-dbinom(x=0, size=200, p=0.02)
+dbinom(x = 0, size = 200, p = 0.02)
+```
 
 ## Poisson and Related Distribution
+
 ### Poisson Distributions
 
-rpois(100, lambda=2)
+```{r}
+rpois(100, lambda = 2)
+```
 
 ### Exponential Distribution
 
-rexp(n=100, rate=.2)
+```{r}
+rexp(n = 100, rate = .2)
+```
 
 ###  Weibull Distribution
 
+```{r}
 rweibull(100, 1.5, 5000)
-
 ```
-
