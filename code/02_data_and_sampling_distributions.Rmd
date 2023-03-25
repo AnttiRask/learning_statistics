@@ -107,7 +107,8 @@ income  <- bind_rows(samp_data, samp_mean_05, samp_mean_20) %>%
 income %>%
     ggplot(aes(income)) +
     geom_histogram(bins = 40) +
-    facet_grid(vars(type))
+    facet_grid(vars(type)) +
+    theme_classic()
 ```
 
 ```{r}
@@ -203,8 +204,8 @@ x %>%
         vjust = -1.1
     ) +
     scale_y_continuous(expand = c(0, 0), limits = c(0, 60)) +
-    theme_classic() +
-    labs(x = "", y = "Counts")
+    labs(x = "", y = "Counts") +
+    theme_classic()
 ```
 
 ## Normal Distribution
@@ -220,7 +221,8 @@ rnorm(100) %>%
     labs(
         x = "Quantile of normal distribution",
         y = "z-score"
-    )
+    ) +
+    theme_classic()
 ```
 
 ## Long-Tailed Distributions
@@ -234,7 +236,8 @@ nflx <- sp500_px %>%
 nflx %>%
     ggplot(aes(sample = nflx)) +
     stat_qq() +
-    geom_abline(slope = 1, intercept = 0, color = "grey")
+    geom_abline(slope = 1, intercept = 0, color = "grey") +
+    theme_classic()
 ```
 
 ## Binomial Distribution

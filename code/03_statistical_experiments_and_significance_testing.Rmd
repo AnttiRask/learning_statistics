@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(conflicted)
-    # conflicts_prefer(dplyr::filter)
+    conflicts_prefer(dplyr::filter)
 library(lmPerm)
 library(pwr)
 library(tidyverse)
@@ -26,7 +26,8 @@ session_times <- read_csv("../data/web_page_data.csv") %>%
     mutate(Time = Time * 100)
 four_sessions <- read_csv("../data/four_sessions.csv")
 click_rate    <- read.csv("../data/click_rates.csv")
-imanishi      <- read.csv("../data/imanishi_data.csv")
+imanishi      <- read.csv("../data/imanishi_data.csv") %>% 
+    mutate(Digit = factor(Digit))
 ```
 
 ## Resampling
@@ -34,38 +35,81 @@ imanishi      <- read.csv("../data/imanishi_data.csv")
 ### Example: Web Stickiness
 
 ```{r}
-graph <- ggplot(session_times, aes(x=Page, y=Time)) + 
-  geom_boxplot() +
-  labs(y='Time (in seconds)') + 
-  theme_bw()
-graph
+graph <- session_times %>%
+    ggplot(aes(Page, Time)) +
+    geom_boxplot() +
+    labs(y = "Time (in seconds)") +
+    theme_classic()
 
-mean_a <- mean(session_times[session_times['Page'] == 'Page A', 'Time'])
-mean_b <- mean(session_times[session_times['Page'] == 'Page B', 'Time'])
-mean_b - mean_a
+graph
+```
+
+```{r}
+mean_a <- session_times %>%
+    filter(Page == "Page A") %>%
+    summarise(mean_time = mean(Time)) %>%
+    pull(mean_time)
+
+mean_b <- session_times %>%
+    filter(Page == "Page B") %>%
+    summarise(mean_time = mean(Time)) %>%
+    pull(mean_time)
+
+mean_diff <- mean_b - mean_a
+
+mean_diff
 ```
 
 ## Permutation test example with stickiness
 
 ```{r}
-perm_fun <- function(x, nA, nB)
-{
-  n <- nA + nB
-  idx_b <- sample(1:n, nB)
-  idx_a <- setdiff(1:n, idx_b)
-  mean_diff <- mean(x[idx_b]) - mean(x[idx_a])
-  return(mean_diff)
+library(scales)
+
+# Set seed for reproducibility
+set.seed(1)
+
+# Define a function to calculate the mean difference between two random subsets of x
+perm_fun <- function(x, nA, nB) {
+    n <- nA + nB
+    idx_b <- sample(1:n, nB)
+    idx_a <- setdiff(1:n, idx_b)
+    mean_diff <- mean(x[idx_b]) - mean(x[idx_a])
+    return(mean_diff)
 }
 
-set.seed(1)
-perm_diffs <- rep(0, 1000)
-for (i in 1:1000) {
-  perm_diffs[i] = perm_fun(session_times[, 'Time'], 21, 15)
-}
-par(mar=c(4,4,1,0)+.1)
-hist(perm_diffs, xlab='Session time differences (in seconds)', main='')
-abline(v=mean_b - mean_a, lty=2, lwd=1.5)
-text('  Observed\n  difference', x=mean_b - mean_a,  y=par()$usr[4]-20, adj=0)
+# Use replicate to generate 1000 permutations of session times and calculate their mean differences
+perm_diffs <- replicate(1000, perm_fun(session_times$Time, 21, 15))
+
+# Calculate the p-value as the proportion of permutation differences that are greater than the observed mean difference
+p_value <- perm_diffs %>%
+    # unlist() %>%
+    as_tibble() %>%
+    summarise(p_value = mean(. > (mean_b - mean_a))) %>%
+    pull()
+
+# Create a histogram of the permutation differences and add a vertical dashed line at the observed mean difference
+perm_diffs %>%
+    as_tibble() %>%
+    ggplot(aes(value)) +
+    geom_histogram(bins = 10, fill = "white", col = "black") +
+    scale_y_continuous(expand = c(0, 0)) +
+    labs(
+        x = "Session time differences (in seconds)",
+        y = "Frequency",
+        title = ""
+    ) +
+    geom_vline(xintercept = mean_b - mean_a, linetype = "dashed", linewidth = 1.5) +
+    annotate(
+        "text",
+        x     = mean_b - mean_a,
+        y     = 220,
+        label = str_glue(
+            "Observed
+            difference"
+        ),
+        hjust = -0.3
+    ) +
+    theme_classic()
 
 mean(perm_diffs > (mean_b - mean_a))
 ```
@@ -73,18 +117,43 @@ mean(perm_diffs > (mean_b - mean_a))
 ## Statistical Significance and P-Values
 
 ```{r}
+# Set seed for reproducibility
+set.seed(1)
+
+# Calculate the observed percentage difference between two conversion rates
 obs_pct_diff <- 100 * (200 / 23739 - 182 / 22588)
+
+# Create a vector representing the binary conversion data (0 = no conversion, 1 = conversion)
 conversion <- c(rep(0, 45945), rep(1, 382))
-perm_diffs <- rep(0, 1000)
-for (i in 1:1000) {
-  perm_diffs[i] = 100 * perm_fun(conversion, 23739, 22588)
-}
 
-hist(perm_diffs, xlab='Conversion rate (percent)', main='')
-abline(v=obs_pct_diff, lty=2, lwd=1.5)
-text('   Observed\n   difference', x=obs_pct_diff,  y=par()$usr[4]-20, adj=0)
+# Generate 1000 permutations of the conversion data and calculate the percentage difference in conversion rates for each
+perm_diffs <- replicate(1000, 100 * perm_fun(conversion, 23739, 22588))
 
-# Obbserved difference
+# Create a histogram of the permutation differences and add a vertical dashed line at the observed difference
+perm_diffs %>% 
+    as_tibble() %>%
+    ggplot(aes(value)) +
+    geom_histogram(bins = 11, fill = "white", col = "black") +
+    scale_y_continuous(expand = c(0, 0)) +
+    labs(
+        x     = "Conversion rate (percent)",
+        y     = "Count",
+        title = ""
+    ) +
+    geom_vline(xintercept = obs_pct_diff, linetype = "dashed", size = 1.5) +
+    annotate(
+        "text",
+        x     = obs_pct_diff,
+        y     = 280,
+        label = str_glue(
+            "Observed
+            difference"
+        ),
+        hjust = -0.2
+    ) +
+    theme_classic()
+
+# Print the observed difference
 obs_pct_diff
 ```
 
@@ -93,91 +162,112 @@ obs_pct_diff
 ```{r}
 mean(perm_diffs > obs_pct_diff)
 
-prop.test(x=c(200,182), n=c(23739,22588), alternative='greater')
+prop.test(x = c(200, 182), n = c(23739, 22588), alternative = "greater")
 ```
 
 ## t-Tests
 
 ```{r}
-t.test(Time ~ Page, data=session_times, alternative='less')
+t.test(Time ~ Page, data = session_times, alternative = "less")
 ```
 
 ## ANOVA
 
 ```{r}
-graph <- ggplot(four_sessions, aes(x=Page, y=Time)) + 
-  geom_boxplot() +
-  labs(y='Time (in seconds)') +
-  theme_bw()
-graph
+graph <- four_sessions %>% 
+    ggplot(aes(Page, Time)) + 
+    geom_boxplot() +
+    labs(y = "Time (in seconds)") +
+    theme_classic()
 
-library(lmPerm)
-summary(aovp(Time ~ Page, data=four_sessions))
+graph
+```
+
+```{r}
+summary(aovp(Time ~ Page, data = four_sessions))
 ```
 
 ### F-Statistic
 
 ```{r}
-summary(aov(Time ~ Page, data=four_sessions))
+summary(aov(Time ~ Page, data = four_sessions))
 ```
 
 ## Chi-Square Test
 
 ### Chi-Square Test: A Resampling Approach
+
 ```{r}
-clicks           <- matrix(click_rate$Rate, nrow=3, ncol=2, byrow=TRUE)
-dimnames(clicks) <- list(unique(click_rate$Headline), unique(click_rate$Click))
+# Reshape the click_rate data to a matrix format
+clicks <- click_rate %>%
+    pivot_wider(names_from = Click, values_from = Rate) %>%
+    column_to_rownames(var = "Headline")
 
-chisq.test(clicks, simulate.p.value=TRUE)
+# Perform the chi-squared test with simulated p-values
+chisq_sim     <- chisq.test(clicks, simulate.p.value = TRUE)
+chisq_sim
 
-chisq.test(clicks, simulate.p.value=FALSE)
+# Perform the chi-squared test with exact p-values
+chisq_exact   <- chisq.test(clicks, simulate.p.value = FALSE)
+chisq_exact
 ```
 
 ```{r}
 ### Figure chi-sq distribution
-x   <- seq(1, 30, length=100)
-chi <- data.frame(df = factor(rep(c(1, 2, 5, 20), rep(100, 4))),
-                  x = rep(x, 4),
-                  p = c(dchisq(x, 1), dchisq(x, 2), dchisq(x, 5), dchisq(x, 20)))
+x   <- seq(1, 30, length = 100)
+chi <- data.frame(
+    df = factor(rep(c(1, 2, 5, 20), rep(100, 4))),
+    x = rep(x, 4),
+    p = c(dchisq(x, 1), dchisq(x, 2), dchisq(x, 5), dchisq(x, 20)
+    )
+) %>%
+    as_tibble()
 
-graph <- ggplot(chi, aes(x=x, y=p)) +
-  geom_line(aes(linetype=df)) +
-  geom_text(aes(x=25, y=0.06, label='df=20'), size=2.5) +
-  geom_text(aes(x=8, y=0.1, label='df=5'), size=2.5) +
-  geom_text(aes(x=4, y=0.2, label='df=2'), size=2.5) +
-  geom_text(aes(x=1.5, y=0.05, label='df=1'), size=2.5) +
-  theme_bw() + theme(legend.position = "none") +
-  labs(x='Value of chi-square statistic', y='Probability')
+graph <- chi %>% 
+    ggplot(aes(x, p)) +
+    geom_line(aes(linetype = df)) +
+    geom_text(aes(x = 25,  y = 0.06, label = "df=20"), size = 2.5) +
+    geom_text(aes(x = 8,   y = 0.1,  label = "df=5"),  size = 2.5) +
+    geom_text(aes(x = 3,   y = 0.2,  label = "df=2"),  size = 2.5) +
+    geom_text(aes(x = 1.5, y = 0.05, label = "df=1"),  size = 2.5) +
+    scale_y_continuous(expand = c(0, 0)) +
+    theme_classic() +
+    theme(legend.position = "none") +
+    labs(
+        x = "Value of chi-square statistic",
+        y = "Probability"
+    )
+
 graph
 ```
 
 ### Fisher's Exact Test
+
 ```{r}
 fisher.test(clicks)
 ```
 
 #### Scientific Fraud
 
-## Code for Figure 8
-
 ```{r}
-imanishi$Digit <- factor(imanishi$Digit)
+# Code for Figure 3-8
+graph <- imanishi %>% 
+    ggplot(aes(Digit, Frequency)) +
+    geom_bar(stat = "identity") +
+    scale_y_continuous(expand = c(0, 0)) +
+    theme_classic()
 
-graph <- ggplot(imanishi, aes(x=Digit, y=Frequency)) +
-  geom_bar(stat='identity') +
-  theme_bw()
 graph
 ```
 
 ## Power and Sample Size
+
 ### Sample Size
 
 ```{r}
+effect_size = ES.h(p1 = 0.0121, p2 = 0.011)
+pwr.2p.test(h = effect_size, sig.level = 0.05, power = 0.8, alternative = "greater")
 
-
-effect_size = ES.h(p1=0.0121, p2=0.011)
-pwr.2p.test(h=effect_size, sig.level=0.05, power=0.8, alternative='greater')
-
-effect_size = ES.h(p1=0.0165, p2=0.011)
-pwr.2p.test(h=effect_size, sig.level=0.05, power=0.8, alternative='greater')
+effect_size = ES.h(p1 = 0.0165, p2 = 0.011)
+pwr.2p.test(h = effect_size, sig.level = 0.05, power = 0.8, alternative = "greater")
 ```

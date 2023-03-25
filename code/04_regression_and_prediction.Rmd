@@ -1,0 +1,650 @@
+---
+title: "Practical Statistics for Data Scientists, Chapter 4: Regression and Prediction"
+author: "Original Code: Bruce, Peter C., Andrew Bruce and Peter Gedeck | Modifications: Antti Rask"
+date: "2023-02-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 4 Regression and Prediction
+
+```{r}
+library(conflicted)
+    conflicts_prefer(dplyr::filter)
+    conflicts_prefer(dplyr::select)
+library(lubridate)
+library(MASS)
+library(mgcv)
+library(splines)
+library(tidyverse)
+```
+
+## Import the Datasets Needed
+
+```{r}
+lung  <- read_csv("../data/LungDisease.csv")
+
+.col_names <- c(
+    "ID",
+    "DocumentDate",
+    "SalePrice",
+    "PropertyID",
+    "PropertyType",
+    "ym",
+    "zhvi_px",
+    "zhvi_idx",
+    "AdjSalePrice",
+    "NbrLivingUnits",
+    "SqFtLot",
+    "SqFtTotLiving",
+    "SqFtFinBasement",
+    "Bathrooms",
+    "Bedrooms",
+    "BldgGrade",
+    "YrBuilt",
+    "YrRenovated",
+    "TrafficNoise",
+    "LandVal",
+    "ImpsVal",
+    "ZipCode",
+    "NewConstruction"
+)
+
+house <- read_tsv(
+    "../data/house_sales.csv",
+    col_names = .col_names,
+    skip = 1
+) %>% 
+    select(-ID)
+```
+
+## Simple Linear Regression
+
+### The Regression Equation
+
+```{r}
+lung %>% 
+    ggplot(aes(Exposure, PEFR)) +
+    geom_point() +
+    labs(
+        x = "Exposure",
+        y = "PEFR"
+    ) +
+    theme_classic()
+
+# Fit a linear regression model
+model <- lm(PEFR ~ Exposure, data = lung)
+model
+
+# Create a scatter plot with linear regression line
+p <- lung %>% 
+    ggplot(aes(Exposure, PEFR)) +
+    geom_abline(
+        intercept = model$coefficients[1],
+        slope     = model$coefficients[2],
+        color     = "blue"
+    ) +
+    labs(
+        x = "Exposure",
+        y = "PEFR"
+    )
+
+# Define x and y
+x <- c(7.5, 17.5)
+y <- predict(model, newdata = tibble(Exposure = x))
+
+# Add annotations to the plot
+p +
+    # Add red dashed lines
+    geom_segment(
+        aes(
+            x    = x[1],
+            y    = y[2],
+            xend = x[2],
+            yend = y[2]
+        ),
+        color    = "red",
+        linetype = "dashed",
+        linewidth = 1.5
+    ) +
+    geom_segment(
+        aes(
+            x     = x[1],
+            y     = y[1],
+            xend  = x[1],
+            yend  = y[2]
+        ),
+        color    = "red",
+        linetype = "dashed",
+        linewidth = 1.5
+    ) +
+    scale_y_continuous(limits = (c(300, 450))) +
+    scale_x_continuous(limits = c(0, 25), expand = c(0, 0)) +
+    theme_classic() +
+    
+    # Add text labels
+    annotate(
+        "text",
+        x     = x[1],
+        y     = mean(y),
+        label = expression(Delta ~ Y),
+        hjust = 1.5,
+        size  = 5
+    ) +
+    annotate(
+        "text",
+        x     = mean(x),
+        y     = y[2],
+        label = expression(Delta ~ X),
+        vjust = 2,
+        size  = 5
+    ) +
+    annotate(
+        "text",
+        x     = mean(x),
+        y     = 400,
+        label = expression(b[1] == frac(Delta ~ Y, Delta ~ X)),
+        size  = 5
+    )
+```
+
+### Fitted Values and Residuals
+
+```{r}
+fitted <- predict(model)
+resid  <- residuals(model)
+
+lung2 <- lung %>%
+    mutate(
+        Fitted   = fitted,
+        positive = PEFR > Fitted
+    ) %>%
+    summarize(
+        PEFR_max = max(PEFR), 
+        PEFR_min = min(PEFR),
+        Fitted   = first(Fitted),
+        .by      = c(Exposure, positive)
+    ) %>%
+    mutate(
+        PEFR = case_when(
+            positive ~ PEFR_max,
+            TRUE     ~ PEFR_min
+        )
+    ) %>%
+    arrange(Exposure)
+
+lung %>% 
+    ggplot(aes(Exposure, PEFR)) +
+    geom_point(shape = 1) +
+    labs(
+        x = "Exposure",
+        y = "PEFR"
+    ) +
+    geom_abline(
+        intercept = model$coefficients[1],
+        slope     = model$coefficients[2],
+        color     = "blue",
+        linewidth = 1
+    ) +
+    geom_segment(
+        aes(
+            x    = Exposure,
+            y    = PEFR,
+            xend = Exposure,
+            yend = Fitted
+        ),
+        data  = lung2,
+        color = "red"
+    ) +
+    theme_classic()
+```
+
+## Multiple linear regression
+
+```{r}
+house %>% 
+    select(AdjSalePrice, SqFtTotLiving, SqFtLot, Bathrooms, Bedrooms, BldgGrade) %>% 
+    head()
+
+house_lm <- lm(
+    AdjSalePrice ~ SqFtTotLiving + SqFtLot + Bathrooms + Bedrooms + BldgGrade, 
+    data      = house,
+    na.action = na.omit
+)
+
+house_lm
+```
+
+### Assessing the Model
+
+```{r}
+summary(house_lm)
+```
+
+### Model Selection and Stepwise Regression
+
+```{r}
+house_full <- lm(
+    AdjSalePrice ~ SqFtTotLiving +
+        SqFtLot +
+        Bathrooms +
+        Bedrooms +
+        BldgGrade +
+        PropertyType +
+        NbrLivingUnits +
+        SqFtFinBasement +
+        YrBuilt +
+        YrRenovated +
+        NewConstruction,
+    data      = house,
+    na.action = na.omit
+)
+
+house_full
+```
+
+```{r}
+# # Code snippet 4.8
+step_lm <- stepAIC(house_full, direction = "both")
+
+step_lm
+```
+
+```{r}
+# Pitäisikö poistaa?
+lm(AdjSalePrice ~  Bedrooms, data = house)
+```
+
+### Weighted regression
+
+```{r}
+house2 <- house %>% 
+    mutate(
+        Year   = year(DocumentDate),
+        Weight = Year - 2005
+    )
+
+house_wt <- lm(
+    AdjSalePrice ~ SqFtTotLiving + SqFtLot + Bathrooms + Bedrooms + BldgGrade,
+    data      = house2,
+    weight    = Weight,
+    na.action = na.omit
+)
+
+bind_cols(
+    house_lm = house_lm$coefficients,
+    house_wt = house_wt$coefficients
+) %>%
+    round(digits = 3)
+```
+
+## Factor variables in regression
+
+### Dummy Variables Representation
+
+```{r}
+house %>%
+    select(PropertyType) %>% 
+    head()
+
+prop_type_dummies <- model.matrix(~ PropertyType -1, data = house)
+
+head(prop_type_dummies)
+```
+
+### Factor Variables with many levels
+
+```{r}
+house %>%
+    select(ZipCode) %>%
+    table()
+
+zip_groups <- house %>%
+    mutate(residuals = residuals(house_lm)) %>%
+    summarize(
+        residuals_median = median(residuals),
+        count            = n(),
+        .by              = ZipCode
+    ) %>%
+    # sort the zip codes by the median residual
+    arrange(residuals_median) %>%
+    mutate(
+        count_cumulative = cumsum(count),
+        zipgroup         = factor(ntile(count_cumulative, 5))
+    )
+
+house2 <- house %>%
+    left_join(select(zip_groups, ZipCode, zipgroup), by = "ZipCode")
+
+house2
+
+zip_groups %>% 
+    select(zipgroup) %>% 
+    table()
+```
+
+## Interpreting the Regression Equation
+
+### Correlated predictors
+
+```{r}
+# The results from the stepwise regression are:
+step_lm$coefficients
+
+update(step_lm, . ~ . -SqFtTotLiving - SqFtFinBasement - Bathrooms)
+```
+
+### Confounding variables
+
+```{r}
+lm(
+    AdjSalePrice ~
+        SqFtTotLiving +
+        SqFtLot +
+        Bathrooms +
+        Bedrooms +
+        BldgGrade +
+        PropertyType +
+        zipgroup,
+    data      = house2,
+    na.action = na.omit
+)
+```
+
+### Interactions and Main Effects
+
+```{r}
+lm(
+    AdjSalePrice ~ 
+        SqFtTotLiving * 
+        zipgroup +
+        SqFtLot + 
+        Bathrooms +
+        Bedrooms + 
+        BldgGrade +
+        PropertyType,
+    data      = house2,
+    na.action = na.omit
+)
+```
+
+## Testing the Assumptions: Regression Diagnostics
+
+### Outliers
+
+```{r}
+house_98105 <- house %>% 
+    filter(ZipCode == 98105)
+
+lm_98105 <- lm(
+    AdjSalePrice ~ SqFtTotLiving + SqFtLot + Bathrooms + Bedrooms + BldgGrade,
+    data = house_98105
+)
+
+summary(lm_98105)
+
+sresid <- rstandard(lm_98105)
+idx    <- order(sresid, decreasing = FALSE)
+sresid[idx[1]]
+resid(lm_98105)[idx[1]]
+
+house_98105[
+    idx[1],
+    c("AdjSalePrice", "SqFtTotLiving", "SqFtLot", "Bathrooms", "Bedrooms", "BldgGrade")
+]
+```
+
+### Influential values
+
+```{r}
+seed  <- 11
+set.seed(seed)
+x      <- rnorm(25)
+y      <- -x/5 + rnorm(25)
+x[1]   <- 8
+y[1]   <- 8
+model  <- lm(y ~ x)
+model2 <- lm(y[-1] ~ x[-1])
+
+tibble(x, y) %>%
+    ggplot(aes(x, y)) +
+    geom_point() +
+    geom_abline(intercept = model$coefficients[1],  slope = model$coefficients[2],  col = "blue") +
+    geom_abline(intercept = model2$coefficients[1], slope = model2$coefficients[2], col = "red") +
+    scale_x_continuous(breaks = seq(0, 8, by = 2)) +
+    scale_y_continuous(breaks = seq(-2, 8, by = 2)) +
+    labs(
+        x = NULL,
+        y = NULL
+    ) +
+    theme_classic()
+
+# influential observations
+house_98105_augmented <- house_98105 %>%
+    mutate(
+        std_resid  = rstandard(lm_98105),
+        cooks_D    = cooks.distance(lm_98105),
+        hat_values = hatvalues(lm_98105)
+    )
+
+house_98105_augmented %>%
+    ggplot(aes(hat_values, std_resid, size = cooks_D)) +
+    geom_point(shape = 1) +
+    geom_point(
+        shape = 21,
+        fill  = "lightgrey",
+        data  = house_98105_augmented %>% filter(cooks_D > 0.08)
+    ) +
+    geom_hline(yintercept = c(-2.5, 2.5), linetype = "dashed") +
+    scale_size(range = c(1, 20 * sqrt(max(cooks_D)))) +
+    scale_x_continuous(
+        breaks = seq(0.05, 0.25, by = 0.05),
+        expand = c(0, 0),
+        limits = c(NA, 0.3)
+    ) +
+    scale_y_continuous(
+        breaks = seq(-4, 4, by = 2)
+    ) +
+    labs(
+        x = "hat_values",
+        y = "std_resid"
+    ) +
+    theme_classic() +
+    theme(
+        legend.position = "none"
+    )
+
+lm_98105_inf <- lm(
+    AdjSalePrice ~ SqFtTotLiving + SqFtLot + Bathrooms +  Bedrooms + BldgGrade,
+    data = house_98105_augmented %>% filter(cooks_D < 0.08)
+)
+
+lm_98105_inf
+```
+
+### Heteroskedasticity, Non-Normality and Correlated Errors
+
+```{r}
+tbl <- tibble(
+    resid = residuals(lm_98105),
+    pred  = predict(lm_98105)
+)
+
+graph <- tbl %>% 
+    ggplot(aes(pred, abs(resid))) +
+    geom_point() +
+    geom_smooth(formula = y ~ x, method = "loess") +
+    scale_x_continuous(
+        breaks = seq(0, 2000000, by = 1000000),
+        expand = c(0, 0),
+        labels = function(x) format(x, scientific = FALSE) 
+    ) +
+    scale_y_continuous(
+        breaks = seq(0, 1000000, by = 250000),
+        expand = c(0, 0),
+        limits = c(0, 1000000)
+    ) +
+    theme_classic()
+
+graph
+
+std_resid <- rstandard(lm_98105)
+
+std_resid %>%
+    as_tibble() %>%
+    ggplot(aes(value)) +
+    geom_histogram(bins = 11, fill = "white", color = "black") +
+    scale_x_continuous(
+        breaks = seq(-4, 6, by = 2)
+    ) +
+    scale_y_continuous(
+        breaks = seq(0, 160, by = 20),
+        expand = c(0,0),
+        limits = c(NA, 180)
+    ) +
+    labs(
+        x = "Frequency",
+        y = "std_resid"
+    ) +
+    theme_classic()
+```
+
+### Partial Residual Plots and Nonlinearity
+
+```{r}
+terms         <- predict(lm_98105, type = "terms")
+partial_resid <- resid(lm_98105) + terms
+
+tbl <- tibble(
+    SqFtTotLiving = house_98105 %>% pull(SqFtTotLiving),
+    Terms         = terms %>% as_tibble() %>% pull(SqFtTotLiving),
+    PartialResid  = partial_resid %>% as_tibble() %>% pull(SqFtTotLiving)
+)
+
+graph <- tbl %>% 
+    ggplot(aes(SqFtTotLiving, PartialResid)) +
+    geom_point(shape = 1) +
+    scale_shape(solid = FALSE) +
+    geom_smooth(
+        linetype = 2,
+        formula  = y ~ x,
+        method   = "loess"
+    ) + 
+    geom_line(aes(SqFtTotLiving, Terms)) + 
+    scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
+    theme_classic()
+
+graph
+```
+
+### Polynomial and Spline Regression
+
+```{r}
+lm_poly <- lm(
+    AdjSalePrice ~ poly(SqFtTotLiving, 2) + SqFtLot + BldgGrade +  Bathrooms +  Bedrooms,
+    data = house_98105
+)
+
+terms         <- predict(lm_poly, type = "terms")
+partial_resid <- resid(lm_poly) + terms
+lm_poly
+
+tbl <- tibble(
+    SqFtTotLiving = house_98105 %>% pull(SqFtTotLiving),
+    Terms         = terms %>% as_tibble() %>% pull(1),
+    PartialResid  = partial_resid %>% as_tibble() %>% pull(1)
+)
+
+graph <- tbl %>% 
+    ggplot(aes(SqFtTotLiving, PartialResid)) +
+    geom_point(shape = 1) +
+    scale_shape(solid = FALSE) +
+    geom_smooth(
+        linetype = 2,
+        formula  = y ~ x,
+        method   = "loess"
+    ) + 
+    geom_line(aes(SqFtTotLiving, Terms)) +
+    scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
+    theme_classic()
+
+graph
+```
+
+### Splines
+
+```{r}
+knots <- house_98105 %>%
+    pull(SqFtTotLiving) %>%
+    quantile(p = c(0.25, 0.5, 0.75))
+
+lm_spline <- lm(
+    AdjSalePrice ~
+        bs(SqFtTotLiving, knots = knots, degree = 3) +
+        SqFtLot + Bathrooms + Bedrooms + BldgGrade, data = house_98105
+)
+
+lm_spline
+
+terms1         <- predict(lm_spline, type = "terms")
+partial_resid1 <- resid(lm_spline) + terms1
+
+tbl1 <- tibble(
+    SqFtTotLiving = house_98105 %>% pull("SqFtTotLiving"),
+    Terms = terms1 %>% as_tibble() %>% pull(1),
+    PartialResid = partial_resid1 %>% as_tibble() %>% pull(1)
+)
+
+graph <- tbl1 %>% 
+    ggplot(aes(SqFtTotLiving, PartialResid)) +
+    geom_point(shape = 1) +
+    scale_shape(solid = FALSE) +
+    geom_smooth(
+        linetype = 2,
+        formula  = y ~ x,
+        method   = "loess"
+    ) + 
+    geom_line(aes(SqFtTotLiving, Terms)) +
+    scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
+    theme_classic()
+
+graph
+```
+
+### Generalized Additive Models
+
+```{r}
+lm_gam <- gam(
+    AdjSalePrice ~ s(SqFtTotLiving) + SqFtLot + Bathrooms +  Bedrooms + BldgGrade,
+    data = house_98105
+)
+
+terms         <- predict.gam(lm_gam, type = "terms")
+partial_resid <- resid(lm_gam) + terms
+
+lm_gam
+
+tbl <- tibble(
+    SqFtTotLiving = house_98105 %>% pull(SqFtTotLiving),
+    Terms         = terms %>% as_tibble() %>% pull(5),
+    PartialResid  = partial_resid %>% as_tibble() %>% pull(5)
+)
+
+graph <- tbl %>%
+    ggplot(aes(SqFtTotLiving, PartialResid)) +
+    geom_point(shape = 1) + 
+    scale_shape(solid = FALSE) +
+    geom_smooth(
+        linetype = 2,
+        formula  = y ~ x,
+        method   = "loess"
+    ) + 
+    geom_line(aes(SqFtTotLiving, Terms)) +
+    scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
+    theme_classic()
+
+graph
+```
