@@ -1,6 +1,6 @@
 ![](img/youcanbeapirate-wb-sparkline.jpg)
  
-# Learning ggplot2
+# Learning Statistics
 
 I'm learning __statistics__ by reading the book __Practical Statistics for Data Scientists: 50+ Essential Concepts Using R and Python (2nd ed.)__ by __Peter Bruce, Andrew Bruce & Peter Gedeck__.
 
