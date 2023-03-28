@@ -13,8 +13,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(conflicted)
-conflicts_prefer(dplyr::filter)
-conflicts_prefer(dplyr::slice)
+    conflicts_prefer(dplyr::filter)
+    conflicts_prefer(dplyr::slice)
 library(FNN)
 library(randomForest)
 library(rpart)
@@ -142,6 +142,7 @@ graph <- loan200_tbl %>%
     geom_point(aes(shape = outcome), size = 2, alpha = 0.4) +
     geom_point(data = nearest_points, aes(shape = outcome), size = 2) +
     geom_point(data = loan200_tbl %>% slice(1), aes(shape = outcome), size = 2) +
+    geom_path(data = circle_tbl, aes(x, y), color = "black") +
     scale_shape_manual(
         values = c(
             "paid off" = 15,
@@ -156,7 +157,6 @@ graph <- loan200_tbl %>%
             "newloan"  = "black"
         )
     ) +
-    geom_path(data = circle_tbl, aes(x, y), color = "black") +
     coord_cartesian(
         xlim = c(3, 15),
         ylim = c(17, 29)
@@ -179,6 +179,7 @@ newloan
 loan_tbl2 <- loan_tbl  %>% slice(-1)
 outcome   <- loan_data %>% slice(-1) %>% pull(outcome)
 knn_pred  <- knn(train = loan_tbl2, test = newloan, cl = outcome, k = 5)
+
 loan_tbl2[as.vector(attr(knn_pred, "nn.index")),]
 ```
 
@@ -194,6 +195,7 @@ loan_std2   <- loan_std  %>% slice(-1)
 loan_tbl4   <- loan_tbl3 %>% slice(-1)
 outcome     <- loan_data %>% slice(-1) %>% pull(outcome)
 knn_pred    <- knn(train = loan_std2, test = newloan_std, cl = outcome, k = 5)
+
 loan_tbl4[as.vector(attr(knn_pred, "nn.index")),]
 ```
 
@@ -228,7 +230,11 @@ borrow_feature %>%
     mutate(index = row_number()) %>%
     ggplot(aes(index, borrow_feature)) +
     geom_point() +
-    scale_y_continuous(breaks = c(0.0, 0.2, 0.4, 0.6, 0.8)) +
+    scale_x_continuous(expand = c(0.01, 0.01)) +
+    scale_y_continuous(
+        breaks = c(0.0, 0.2, 0.4, 0.6, 0.8),
+        expand = c(0.01, 0.01)
+    ) +
     theme_classic()
 ```
 
@@ -264,8 +270,6 @@ r_tree <- tibble(
     rule_number = factor(c(1, 2, 3, 4, 5))
 )
 
-# r_tree <- as.data.frame(r_tree)
-
 rules <- tibble(
     x           = c(0.575, 0.375,   0.4,   0.4, 0.475),
     y           = c(   24,    24, 10.42, 4.426,  9.42),
@@ -293,9 +297,7 @@ labs <- tibble(
         "paid off", "default", "default", "paid off", "paid off", "default"
     ))
 )
-```
 
-```{r}
 # With different linetypes
 graph <- loan3000 %>% 
     ggplot(aes(borrower_score, payment_inc_ratio)) +
@@ -369,6 +371,8 @@ x %>%
     as_tibble() %>% 
     ggplot(aes(x, info(x) + info(1 - x))) +
     geom_point() +
+    scale_x_continuous(expand = c(0, 0.01)) + 
+    scale_y_continuous(expand = c(0, 0.01)) + 
     theme_classic()
 ```
 
@@ -381,6 +385,8 @@ x %>%
     as_tibble() %>% 
     ggplot(aes(x, gini(x))) +
     geom_point() +
+    scale_x_continuous(expand = c(0, 0.01)) + 
+    scale_y_continuous(expand = c(0, 0.01)) +
     theme_classic()
 ```
 
@@ -694,7 +700,9 @@ error_default <- abs(label[test_idx] - pred_default) > 0.5
 xgb_default$evaluation_log %>%
     as_tibble() %>% 
     slice_tail(n = 1)
+```
 
+```{r}
 mean(error_default)
 ```
 
@@ -719,7 +727,9 @@ error_penalty <- abs(label[test_idx] - pred_penalty) > 0.5
 xgb_penalty$evaluation_log %>%
     as_tibble() %>% 
     slice_tail(n = 1)
+```
 
+```{r}
 mean(error_penalty)
 ```
 
@@ -756,12 +766,14 @@ graph <- errors %>%
     ggplot(aes(iter, train_error, group = type)) +
     geom_line(aes(linetype = type, color = type), linewidth = 1) +
     scale_linetype_manual(values = c("solid", "dashed", "dotted", "longdash")) +
-    theme_classic() +
-    theme(legend.key.width = unit(1.5, "cm")) +
+    scale_x_continuous(expand = c(0.01, 0.01)) +
+    scale_y_continuous(expand = c(0.01, 0.01)) +
     labs(
         x = "Iterations",
         y = "Error"
     ) +
+    theme_classic() +
+    theme(legend.key.width = unit(1.5, "cm")) +
     guides(color = guide_legend(override.aes = list(size = 1)))
 
 graph

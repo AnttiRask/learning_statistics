@@ -26,17 +26,17 @@ library(tidyverse)
 ## Import the Datasets Needed
 
 ```{r}
-state         <- read_csv("data/state.csv")
-dfw           <- read_csv("data/dfw_airline.csv")
-sp500_px      <- read_csv("data/sp500_data.csv.gz") %>% 
-  select(date = ...1, everything())
-sp500_sym     <- read_csv("data/sp500_sectors.csv")
-kc_tax        <- read_csv("data/kc_tax.csv.gz")
-lc_loans      <- read_csv("data/lc_loans.csv")
-airline_stats <- read_csv("data/airline_stats.csv") %>%
-  mutate(airline = factor(airline, levels = c(
-      "Alaska", "American", "Jet Blue", "Delta", "United", "Southwest"
-      )))
+state         <- read_csv("../data/state.csv")
+dfw           <- read_csv("../data/dfw_airline.csv")
+sp500_px      <- read_csv("../data/sp500_data.csv.gz") %>% 
+    select(date = ...1, everything())
+sp500_sym     <- read_csv("../data/sp500_sectors.csv")
+kc_tax        <- read_csv("../data/kc_tax.csv.gz")
+lc_loans      <- read_csv("../data/lc_loans.csv")
+airline_stats <- read_csv("../data/airline_stats.csv") %>%
+    mutate(airline = factor(airline, levels = c(
+        "Alaska", "American", "Jet Blue", "Delta", "United", "Southwest"
+    )))
 ```
 
 ## Estimates of Location
@@ -46,19 +46,23 @@ airline_stats <- read_csv("data/airline_stats.csv") %>%
 ```{r}
 # Table 1-2
 state %>%
-  mutate(Population = Population %>% number(big.mark = ",")) %>%
-  slice_head(n = 8) %>%
-  datatable(colnames = c("State", "Population", "Murder rate", "Abbreviation"))
+    mutate(Population = Population %>% number(big.mark = ",")) %>%
+    slice_head(n = 8) %>%
+    datatable(colnames = c("State", "Population", "Murder rate", "Abbreviation"))
 ```
 
 ```{r}
-state$Population %>% mean()
-state$Population %>% mean(trim = 0.1)
-state$Population %>% median()
+population <- state %>% pull(Population) 
+
+population %>% mean()
+population %>% mean(trim = 0.1)
+population %>% median()
 
 # Using {matrixStats}
-state$Murder.Rate %>% weightedMean(w = state$Population)
-state$Murder.Rate %>% weightedMedian(w = state$Population)
+murder_rate <- state %>% pull(Murder.Rate) 
+
+murder_rate %>% weightedMean(w = state$Population)
+murder_rate %>% weightedMedian(w = state$Population)
 ```
 
 ## Estimates of Variability
@@ -66,72 +70,74 @@ state$Murder.Rate %>% weightedMedian(w = state$Population)
 ```{r}
 # Table 1-3
 state %>% 
-  mutate(Population = Population %>% number(big.mark = ",")) %>%
-  slice_head(n = 8) %>%
-  datatable(colnames = c("State", "Population", "Murder rate", "Abbreviation"))
+    mutate(Population = Population %>% number(big.mark = ",")) %>%
+    slice_head(n = 8) %>%
+    datatable(colnames = c("State", "Population", "Murder rate", "Abbreviation"))
 ```
 
 ```{r}
-state$Population %>% sd()
-state$Population %>% IQR()
-state$Population %>% mad()
+population %>% sd()
+population %>% IQR()
+population %>% mad()
 ```
 
 ## Percentiles and Boxplots
 
 ```{r}
-state$Murder.Rate %>%
-  quantile(p = c(.05, .25, .5, .75, .95)) %>%
-  as_tibble(rownames = "percentile")
+murder_rate %>%
+    quantile(p = c(0.05, 0.25, 0.5, 0.75, 0.95)) %>%
+    as_tibble(rownames = "percentile")
 
 state %>% 
-  ggplot(aes(Population / 1000000)) +
-  geom_boxplot() +
-  coord_flip() +
-  theme_bw() +
-  labs(x = "Population (millions)")
+    ggplot(aes(Population / 1000000)) +
+    geom_boxplot() +
+    coord_flip() +
+    theme_classic() +
+    labs(x = "Population (millions)")
 ```
 
 ## Frequency Table and Histograms
 
 ```{r}
 cut_interval(
-  state$Population,
-  n      = 10,
-  closed = c("left")
+    population,
+    n      = 10,
+    closed = c("left")
 ) %>% 
-  table() %>% 
-  as_tibble(rownames = "bin_number") %>% 
-  rename(
-    bin_range = ".",
-    count     = n
-  )
+    table() %>% 
+    as_tibble(rownames = "bin_number") %>% 
+    rename(
+        bin_range = ".",
+        count     = n
+    )
 
 # If we just want to add the bin_range to the state tibble (we do lose the empty bins!):
 state %>% 
-  mutate(
-    bin_range = cut_interval(
-      state$Population,
-      n      = 10,
-      closed = c("left")
-    )
-  ) %>% 
-  arrange(desc(Population))
+    mutate(
+        bin_range = cut_interval(
+            population,
+            n      = 10,
+            closed = c("left")
+        )
+    ) %>% 
+    arrange(desc(Population))
 ```
 
 ```{r}
 state %>% 
-  ggplot(aes(Population)) +
-  geom_histogram(
-    breaks   = seq(
-      from   = min(state$Population),
-      to     = max(state$Population),
-      length = 11
-    ),
-    color    = "black",
-    fill     = "white"
-  ) +
-  theme_bw()
+    ggplot(aes(Population)) +
+    geom_histogram(
+        breaks = seq(
+            from   = min(state$Population),
+            to     = max(state$Population),
+            length = 11
+        ),
+        color    = "black",
+        fill     = "white"
+    ) +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    theme_classic()
 ```
 
 ## Density Estimates
@@ -139,103 +145,107 @@ state %>%
 ```{r}
 # Density is an alternative to histograms that can provide more insight into the distribution of the data points.
 state %>%
-  ggplot(aes(Murder.Rate)) +
-  geom_histogram(
-    aes(y = ..density..),
-    bins  = 12,
-    color = "black",
-    fill  = "white"
-  ) +
-  geom_density(
-    color      = "blue",
-    linewidth  = 1.5
-  ) +
-  scale_x_continuous(
-    breaks = seq(0, 10, by = 2),
-  ) +
-  theme_bw() +
-  labs(
-    x = "Murder rate (per 100,000)",
-    y = "Density"
-  )
+    ggplot(aes(Murder.Rate)) +
+    geom_histogram(
+        aes(y = after_stat(density)),
+        bins  = 12,
+        color = "black",
+        fill  = "white"
+    ) +
+    geom_density(
+        color      = "blue",
+        linewidth  = 1.5
+    ) +
+    scale_x_continuous(
+        breaks = seq(0, 10, by = 2),
+        expand = c(0, 0)
+    ) +
+    scale_y_continuous(
+        expand = c(0, 0)
+    ) +
+    labs(
+        x = "Murder rate (per 100,000)",
+        y = "Density"
+    ) +
+    theme_classic()
 ```
 
 ## Exploring Binary and Categorical Data
 
 ```{r}
 dfw %>%
-  pivot_longer(cols = everything()) %>% 
-  ggplot(aes(fct_reorder(name, value), value)) +
-  geom_col(
-    color = "black",
-    fill  = "white"
-  ) +
-  coord_flip() +
-  theme_bw() +
-  labs(
-    x = "Cause of Delay",
-    y = "Count"
-  )
+    pivot_longer(cols = everything()) %>% 
+    ggplot(aes(fct_reorder(name, value), value)) +
+    geom_col(
+        color = "black",
+        fill  = "white"
+    ) +
+    coord_flip() +
+    scale_y_continuous(expand = c(0, 0)) +
+    labs(
+        x = "Cause of Delay",
+        y = "Count"
+    ) +
+    theme_classic()
 ```
 
 ## Correlation
 
 ```{r}
 telecom_vec <- sp500_sym %>%
-  filter(sector == "telecommunications_services") %>%
-  pull(symbol)
+    filter(sector == "telecommunications_services") %>%
+    pull(symbol)
 
 telecom <- sp500_px %>%
-  filter(
-    date > "2012-07-01"
-  ) %>% 
-  select(
-    date,
-    all_of(telecom_vec)
-  )
-  
+    filter(date > "2012-07-01") %>% 
+    select(
+        date,
+        all_of(telecom_vec)
+    )
+
 telecom_cor <- telecom %>%
-  correlate()
+    correlate()
+
 telecom_cor
 
 # Next we focus on funds traded on major exchanges (sector == 'etf')
 etfs_vec <- sp500_sym %>%
-  filter(sector == "etf") %>%
-  pull(symbol)
+    filter(sector == "etf") %>%
+    pull(symbol)
 
 etfs <- sp500_px %>%
-  filter(
-    date > "2012-07-01"
-  ) %>% 
-  select(
-    date,
-    all_of(etfs_vec)
-  )
+    filter(
+        date > "2012-07-01"
+    ) %>% 
+    select(
+        date,
+        all_of(etfs_vec)
+    )
 
 etfs %>%
-  correlate() %>% 
-  rplot(print_cor = FALSE)
+    correlate() %>% 
+    rplot(print_cor = FALSE)
 ```
 
 ## Scatterplots
 
 ```{r}
-# plot(telecom$T, telecom$VZ, xlab='T', ylab='VZ', cex=.8)
 telecom %>%
-  ggplot(aes(T, VZ)) +
-  geom_point(alpha = 0.3) +
-  geom_vline(
-    xintercept = 0,
-    color      = "grey"
+    ggplot(aes(T, VZ)) +
+    geom_point(alpha = 0.3) +
+    geom_vline(
+        xintercept = 0,
+        color      = "grey"
     ) +
-  geom_hline(
-    yintercept = 0,
-    color      = "grey"
+    geom_hline(
+        yintercept = 0,
+        color      = "grey"
     ) +
-  labs(
-    x = "ATT (T)",
-    y = "Verizon (VZ)"
-  )
+    labs(
+        x = "ATT (T)",
+        y = "Verizon (VZ)"
+    ) +
+    theme_classic()
 
 dim(telecom)
 ```
@@ -245,11 +255,11 @@ dim(telecom)
 ```{r}
 # Filter based on a variety of criteria
 kc_tax0 <- kc_tax %>% 
-  filter(
-    TaxAssessedValue < 750000 &
-      SqFtTotLiving  > 100 &
-      SqFtTotLiving  < 3500
-  )
+    filter(
+        TaxAssessedValue < 750000 &
+        SqFtTotLiving    > 100 &
+        SqFtTotLiving    < 3500
+    )
 
 nrow(kc_tax0)
 ```
@@ -259,17 +269,17 @@ nrow(kc_tax0)
 ```{r}
 # Plotting numeric versus numeric data
 graph <- kc_tax0 %>% 
-  ggplot(aes(SqFtTotLiving, TaxAssessedValue)) + 
-  stat_binhex(color = "white") +
-  scale_fill_gradient(
-    low  = "white",
-    high = "blue"
-  ) +
-  theme_bw() +
-  labs(
-    x = "Finished Square Feet",
-    y = "Tax-Assessed Value"
-  )
+    ggplot(aes(SqFtTotLiving, TaxAssessedValue)) + 
+    stat_binhex(color = "white") +
+    scale_fill_gradient(
+        low  = "white",
+        high = "blue"
+    ) +
+    labs(
+        x = "Finished Square Feet",
+        y = "Tax-Assessed Value"
+    ) +
+    theme_classic()
 
 graph
 ```
@@ -278,17 +288,17 @@ graph
 
 ```{r}
 graph_2 <- kc_tax0 %>% 
-  ggplot(aes(SqFtTotLiving, TaxAssessedValue)) +
-  geom_point(
-    color = "blue",
-    alpha = 0.1
-  ) +
-  geom_density2d(color = "white") +
-  theme_bw() +
-  labs(
-    x = "Finished Square Feet",
-    y = "Tax-Assessed Value"
-  )
+    ggplot(aes(SqFtTotLiving, TaxAssessedValue)) +
+    geom_point(
+        color = "blue",
+        alpha = 0.1
+    ) +
+    geom_density2d(color = "white") +
+    labs(
+        x = "Finished Square Feet",
+        y = "Tax-Assessed Value"
+    ) +
+    theme_classic()
 
 graph_2
 ```
@@ -297,21 +307,21 @@ graph_2
 
 ```{r}
 CrossTable(
-  lc_loans$grade,
-  lc_loans$status
+    lc_loans %>% pull(grade),
+    lc_loans %>% pull(status)
 )
 ```
 
 ```{r, warning=FALSE}
 lc_loans %>%
-  crosstable(
-      cols            = grade,
-      by              = status,
-      label           = FALSE,
-      total           = "both",
-      percent_pattern = "{n} ({p_row}/{p_col})",
-      percent_digits  = 1
-  ) %>%
+    crosstable(
+        cols            = grade,
+        by              = status,
+        label           = FALSE,
+        total           = "both",
+        percent_pattern = "{n} ({p_row}/{p_col})",
+        percent_digits  = 1
+    ) %>%
     as_flextable(compact = TRUE)
 ```
 
@@ -320,25 +330,28 @@ lc_loans %>%
 ```{r}
 # Boxplots of a column can be grouped by a different column.
 airline_stats %>% 
-  ggplot(aes(pct_carrier_delay, airline), ylim = c(0, 50)) +
-  geom_boxplot() +
-  coord_flip() +
-  theme_bw() +
-  labs(
-    x = "Daily % of Delayed Flights",
-    y = "Airline"
-  )
+    ggplot(aes(pct_carrier_delay, airline), ylim = c(0, 50)) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(
+        x = "Daily % of Delayed Flights",
+        y = "Airline"
+    ) +
+    theme_classic()
+```
 
+```{r}
 # Variation of boxplots called _violinplot_.
 graph_3 <- airline_stats %>% 
-  ggplot(aes(airline, pct_carrier_delay)) +
-  geom_violin(draw_quantiles = c(.25,.5,.75), linetype = 2) +
-  geom_violin(fill = NA, size = 1.1) +
-  coord_cartesian(ylim = c(0, 50)) +
-  theme_bw() +
-  labs(
-    x = "",
-    y = "Daily % of Delayed Flights")
+    ggplot(aes(airline, pct_carrier_delay)) +
+    geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), linetype = 2) +
+    geom_violin(fill = NA, linewidth = 1.1) +
+    coord_cartesian(ylim = c(0, 50)) +
+    labs(
+        x = "",
+        y = "Daily % of Delayed Flights"
+    ) +
+    theme_classic()
 
 graph_3
 ```
@@ -347,16 +360,16 @@ graph_3
 
 ```{r}
 graph_4 <- kc_tax0 %>%
-  filter(ZipCode %in% c(98188, 98105, 98108, 98126)) %>%
-  ggplot(aes(SqFtTotLiving, TaxAssessedValue)) +
-  stat_binhex(colour = "white") +
-  scale_fill_gradient(low = "gray95", high = "black") +
-  theme_bw() +
-  labs(
-    x = "Finished Square Feet",
-    y = "Tax-Assessed Value"
-  ) +
-  facet_wrap(vars(ZipCode))
+    filter(ZipCode %in% c(98188, 98105, 98108, 98126)) %>%
+    ggplot(aes(SqFtTotLiving, TaxAssessedValue)) +
+    stat_binhex(color = "white") +
+    facet_wrap(vars(ZipCode)) +
+    scale_fill_gradient(low = "gray95", high = "black") +
+    labs(
+        x = "Finished Square Feet",
+        y = "Tax-Assessed Value"
+    ) +
+    theme_classic()
 
 graph_4
 ```

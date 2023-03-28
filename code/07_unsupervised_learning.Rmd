@@ -68,8 +68,8 @@ graph <- oil_px %>%
         color     = "grey25",
         linetype  = 2
     ) +
-    scale_x_continuous(expand=c(0, 0)) + 
-    scale_y_continuous(expand=c(0, 0)) +
+    scale_x_continuous(expand = c(0.01, 0.01)) + 
+    scale_y_continuous(expand = c(0.01, 0.01)) +
     coord_cartesian(xlim = c(-3, 3), ylim = c(-3, 3)) +
     theme_classic()
 
@@ -143,11 +143,11 @@ summary(ca_analysis)
 ```
 
 ```{r}
-contrib  = ca_analysis$sv ** 2
-contrib  = contrib / sum(contrib)
-colcoord = as.data.frame(ca_analysis$colcoord)
-rowcoord = as.data.frame(ca_analysis$rowcoord)
-coords   = rbind(
+contrib  <- ca_analysis$sv ** 2
+contrib  <- contrib / sum(contrib)
+colcoord <- as.data.frame(ca_analysis$colcoord)
+rowcoord <- as.data.frame(ca_analysis$rowcoord)
+coords   <- rbind(
     cbind(rowcoord, type = "rowcoord"),
     cbind(colcoord, type = "columns")
 ) %>%
@@ -507,6 +507,9 @@ dnd     <- as.dendrogram(hcl)
 dnd_cut <- cut(dnd, h = 0.5)
 
 plot(dnd, leaflab = "none", ylab = "distance")
+```
+
+```{r}
 tbl[labels(dnd_cut$lower[[4]]),]
 ```
 

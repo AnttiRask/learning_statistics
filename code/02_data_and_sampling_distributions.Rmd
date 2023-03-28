@@ -42,11 +42,13 @@ tbl %>%
     ggplot(aes(x, y)) +
     geom_line(color = "blue") +
     geom_polygon(fill = "blue") +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
     labs(
         x = NULL,
         y = NULL
     ) +
-    theme_void()
+    theme_classic()
 
 # 2
 tbl2 <- tibble(x = rnorm(100))
@@ -54,11 +56,13 @@ tbl2 <- tibble(x = rnorm(100))
 tbl2 %>%
     ggplot(aes(x)) +
     geom_histogram(fill = "red", color = "black", bins = 10) +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
     labs(
         x = NULL,
         y = NULL
     ) +
-    theme_void()
+    theme_classic()
 ```
 
 ## Sampling Distribution of a Statistic
@@ -67,7 +71,7 @@ tbl2 %>%
 # take a simple random sample
 samp_data <- tibble(
     income = sample(loans_income, 1000),
-    type = "data_dist"
+    type   = "data_dist"
 )
 
 # take a sample of means of 5 values
@@ -100,7 +104,7 @@ income  <- bind_rows(samp_data, samp_mean_05, samp_mean_20) %>%
         type = factor(
             type,
             levels = c("data_dist", "mean_of_5", "mean_of_20"),
-            labels = c("Data", "Mean of 5", "Mean of 20")
+            labels = c("Data",      "Mean of 5", "Mean of 20")
         )
     )
 
@@ -108,7 +112,7 @@ income %>%
     ggplot(aes(income)) +
     geom_histogram(bins = 40) +
     facet_grid(vars(type)) +
-    theme_classic()
+    theme_bw()
 ```
 
 ```{r}
@@ -132,7 +136,7 @@ calculate_sample_mean <- function(data, n) {
         ) %>%
         mutate(type = str_glue("mean_of_{n}")) %>% 
         select(-rep)
-        
+    
     sample_mean
 }
 
@@ -175,9 +179,9 @@ x %>%
     geom_path(aes(ci[2], c(0, 45)), data = ci90, linewidth = 1.5) +
     geom_label(
         aes(sampleMean, 8, label = str_glue(
-                "Sample mean:
+            "Sample mean:
                 {round(sampleMean)}"
-            )
+        )
         ),
         size          = 5,
         label.padding = unit(0.5, "lines")
@@ -261,7 +265,7 @@ rpois(100, lambda = 2)
 ### Exponential Distribution
 
 ```{r}
-rexp(n = 100, rate = .2)
+rexp(n = 100, rate = 0.2)
 ```
 
 ###  Weibull Distribution

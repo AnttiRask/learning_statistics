@@ -57,7 +57,9 @@ naive_model <- NaiveBayes(
 )
 
 naive_model$table
+```
 
+```{r}
 new_loan <- loan_data %>%
     filter(
         `...1` == 147
@@ -85,7 +87,9 @@ less_naive <- NaiveBayes(
 )
 
 less_naive$table[1:2]
+```
 
+```{r}
 stats <- less_naive$table[[1]]
 
 graph <- tibble(borrower_score = c(0,1)) %>%
@@ -108,6 +112,8 @@ graph <- tibble(borrower_score = c(0,1)) %>%
             sd   = stats[2, 2]
         )
     ) +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
     labs(y = "probability") +
     theme_classic()
 
@@ -125,10 +131,12 @@ loan_lda <- lda(
 )
 
 loan_lda$scaling
+```
 
+```{r}
 pred <- predict(loan_lda)
 
-head(pred$posterior)
+head(pred$posterior %>% as_tibble())
 ```
 
 #### Figure 5.1
@@ -184,9 +192,13 @@ logistic_model <- glm(
 )
 
 logistic_model
+```
 
+```{r}
 summary(logistic_model)
+```
 
+```{r}
 p   <- seq(from = 0.01, to = 0.99, by = 0.01)
 tbl <- tibble(
     p     = p,
@@ -211,7 +223,9 @@ graph
 ```{r}
 pred <- predict(logistic_model)
 summary(pred)
+```
 
+```{r}
 prob <- 1/(1 + exp(-pred))
 summary(prob)
 ```
@@ -230,6 +244,8 @@ graph <- tbl %>%
         xlim = c(0, 5),
         ylim = c(1, 100)
     ) +
+    scale_x_continuous(expand = c(0,0)) +
+    scale_y_continuous(expand = c(0,0)) +
     theme_classic()
 
 graph
@@ -260,7 +276,7 @@ terms         <- predict(logistic_gam, type = "terms")
 partial_resid <- resid(logistic_gam) + terms
 
 .payment_inc_ratio <- loan_data %>%
-    pull("payment_inc_ratio")
+    pull(payment_inc_ratio)
 
 .terms <- terms %>%
     as_tibble() %>%
@@ -292,7 +308,6 @@ graph <- tbl %>%
 graph
 
 # 2
-
 tbl <- tibble(
     .payment_inc_ratio,
     terms = 1 / (1 + exp(-.terms)),
@@ -387,8 +402,13 @@ graph
 
 ```{r}
 sum(roc_tbl$recall[-1] * diff(1-roc_tbl$specificity))
-head(roc_tbl)
+```
 
+```{r}
+head(roc_tbl)
+```
+
+```{r}
 graph <- roc_tbl %>%
     ggplot(aes(specificity)) +
     geom_ribbon(
@@ -396,7 +416,7 @@ graph <- roc_tbl %>%
         fill = "blue",
         alpha = 0.3
     ) +
-    scale_x_reverse(expand = c(0, 0)) +
+    scale_x_reverse(expand = c(0.01, 0.01)) +
     scale_y_continuous(expand = c(0, 0)) +
     labs(y = "recall") +
     theme_classic()
@@ -414,7 +434,9 @@ full_train_set %>%
         mean_outcome = mean(outcome=="default")
     ) %>% 
     pull()
+```
 
+```{r}
 full_model <- glm(
     outcome ~
         payment_inc_ratio +
@@ -431,7 +453,9 @@ full_model <- glm(
 pred <- predict(full_model)
 
 mean(pred > 0)
+```
 
+```{r}
 full_train_set %>%
     summarize(default_mean = mean(outcome == "default")) %>%
     pull(default_mean) / mean(pred > 0)
@@ -565,7 +589,7 @@ graph <- loan_fits %>%
     ) +
     geom_line(linewidth = 1.5) +
     theme(legend.key.width = unit(2, "cm")) +
-    guides(linetype = guide_legend(override.aes = list(size = 1))) +
+    guides(linetype = guide_legend(override.aes = list(linewidth = 1))) +
     theme_classic()
 
 graph

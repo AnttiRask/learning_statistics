@@ -16,6 +16,7 @@ library(conflicted)
     conflicts_prefer(dplyr::filter)
 library(lmPerm)
 library(pwr)
+library(scales)
 library(tidyverse)
 ```
 
@@ -63,16 +64,14 @@ mean_diff
 ## Permutation test example with stickiness
 
 ```{r}
-library(scales)
-
 # Set seed for reproducibility
 set.seed(1)
 
 # Define a function to calculate the mean difference between two random subsets of x
 perm_fun <- function(x, nA, nB) {
-    n <- nA + nB
-    idx_b <- sample(1:n, nB)
-    idx_a <- setdiff(1:n, idx_b)
+    n         <- nA + nB
+    idx_b     <- sample(1:n, nB)
+    idx_a     <- setdiff(1:n, idx_b)
     mean_diff <- mean(x[idx_b]) - mean(x[idx_a])
     return(mean_diff)
 }
@@ -82,7 +81,6 @@ perm_diffs <- replicate(1000, perm_fun(session_times$Time, 21, 15))
 
 # Calculate the p-value as the proportion of permutation differences that are greater than the observed mean difference
 p_value <- perm_diffs %>%
-    # unlist() %>%
     as_tibble() %>%
     summarise(p_value = mean(. > (mean_b - mean_a))) %>%
     pull()
@@ -92,13 +90,9 @@ perm_diffs %>%
     as_tibble() %>%
     ggplot(aes(value)) +
     geom_histogram(bins = 10, fill = "white", col = "black") +
-    scale_y_continuous(expand = c(0, 0)) +
-    labs(
-        x = "Session time differences (in seconds)",
-        y = "Frequency",
-        title = ""
-    ) +
     geom_vline(xintercept = mean_b - mean_a, linetype = "dashed", linewidth = 1.5) +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
     annotate(
         "text",
         x     = mean_b - mean_a,
@@ -108,6 +102,11 @@ perm_diffs %>%
             difference"
         ),
         hjust = -0.3
+    ) +
+    labs(
+        x = "Session time differences (in seconds)",
+        y = "Frequency",
+        title = ""
     ) +
     theme_classic()
 
@@ -124,23 +123,19 @@ set.seed(1)
 obs_pct_diff <- 100 * (200 / 23739 - 182 / 22588)
 
 # Create a vector representing the binary conversion data (0 = no conversion, 1 = conversion)
-conversion <- c(rep(0, 45945), rep(1, 382))
+conversion   <- c(rep(0, 45945), rep(1, 382))
 
 # Generate 1000 permutations of the conversion data and calculate the percentage difference in conversion rates for each
-perm_diffs <- replicate(1000, 100 * perm_fun(conversion, 23739, 22588))
+perm_diffs   <- replicate(1000, 100 * perm_fun(conversion, 23739, 22588))
 
 # Create a histogram of the permutation differences and add a vertical dashed line at the observed difference
 perm_diffs %>% 
     as_tibble() %>%
     ggplot(aes(value)) +
     geom_histogram(bins = 11, fill = "white", col = "black") +
-    scale_y_continuous(expand = c(0, 0)) +
-    labs(
-        x     = "Conversion rate (percent)",
-        y     = "Count",
-        title = ""
-    ) +
     geom_vline(xintercept = obs_pct_diff, linetype = "dashed", size = 1.5) +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
     annotate(
         "text",
         x     = obs_pct_diff,
@@ -150,6 +145,11 @@ perm_diffs %>%
             difference"
         ),
         hjust = -0.2
+    ) +
+    labs(
+        x     = "Conversion rate (percent)",
+        y     = "Count",
+        title = ""
     ) +
     theme_classic()
 
@@ -204,11 +204,11 @@ clicks <- click_rate %>%
     column_to_rownames(var = "Headline")
 
 # Perform the chi-squared test with simulated p-values
-chisq_sim     <- chisq.test(clicks, simulate.p.value = TRUE)
+chisq_sim   <- chisq.test(clicks, simulate.p.value = TRUE)
 chisq_sim
 
 # Perform the chi-squared test with exact p-values
-chisq_exact   <- chisq.test(clicks, simulate.p.value = FALSE)
+chisq_exact <- chisq.test(clicks, simulate.p.value = FALSE)
 chisq_exact
 ```
 
@@ -231,12 +231,13 @@ graph <- chi %>%
     geom_text(aes(x = 3,   y = 0.2,  label = "df=2"),  size = 2.5) +
     geom_text(aes(x = 1.5, y = 0.05, label = "df=1"),  size = 2.5) +
     scale_y_continuous(expand = c(0, 0)) +
-    theme_classic() +
-    theme(legend.position = "none") +
     labs(
         x = "Value of chi-square statistic",
         y = "Probability"
-    )
+    ) +
+    theme_classic() +
+    theme(legend.position = "none")
+    
 
 graph
 ```
@@ -265,9 +266,9 @@ graph
 ### Sample Size
 
 ```{r}
-effect_size = ES.h(p1 = 0.0121, p2 = 0.011)
+effect_size <- ES.h(p1 = 0.0121, p2 = 0.011)
 pwr.2p.test(h = effect_size, sig.level = 0.05, power = 0.8, alternative = "greater")
 
-effect_size = ES.h(p1 = 0.0165, p2 = 0.011)
+effect_size <- ES.h(p1 = 0.0165, p2 = 0.011)
 pwr.2p.test(h = effect_size, sig.level = 0.05, power = 0.8, alternative = "greater")
 ```

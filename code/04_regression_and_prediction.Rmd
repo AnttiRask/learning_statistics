@@ -74,11 +74,15 @@ lung %>%
         y = "PEFR"
     ) +
     theme_classic()
+```
 
+```{r}
 # Fit a linear regression model
 model <- lm(PEFR ~ Exposure, data = lung)
 model
+```
 
+```{r}
 # Create a scatter plot with linear regression line
 p <- lung %>% 
     ggplot(aes(Exposure, PEFR)) +
@@ -121,9 +125,8 @@ p +
         linetype = "dashed",
         linewidth = 1.5
     ) +
-    scale_y_continuous(limits = (c(300, 450))) +
-    scale_x_continuous(limits = c(0, 25), expand = c(0, 0)) +
-    theme_classic() +
+    scale_y_continuous(expand = c(0, 0), limits = (c(300, 450))) +
+    scale_x_continuous(expand = c(0, 0), limits = c(0, 25)) +
     
     # Add text labels
     annotate(
@@ -148,7 +151,8 @@ p +
         y     = 400,
         label = expression(b[1] == frac(Delta ~ Y, Delta ~ X)),
         size  = 5
-    )
+    ) +
+    theme_classic()
 ```
 
 ### Fitted Values and Residuals
@@ -208,7 +212,9 @@ lung %>%
 house %>% 
     select(AdjSalePrice, SqFtTotLiving, SqFtLot, Bathrooms, Bedrooms, BldgGrade) %>% 
     head()
+```
 
+```{r}
 house_lm <- lm(
     AdjSalePrice ~ SqFtTotLiving + SqFtLot + Bathrooms + Bedrooms + BldgGrade, 
     data      = house,
@@ -254,8 +260,7 @@ step_lm
 ```
 
 ```{r}
-# Pitäisikö poistaa?
-lm(AdjSalePrice ~  Bedrooms, data = house)
+lm(AdjSalePrice ~ Bedrooms, data = house)
 ```
 
 ### Weighted regression
@@ -289,8 +294,10 @@ bind_cols(
 house %>%
     select(PropertyType) %>% 
     head()
+```
 
-prop_type_dummies <- model.matrix(~ PropertyType -1, data = house)
+```{r}
+prop_type_dummies <- model.matrix(~ PropertyType -1, data = house) %>% as_tibble()
 
 head(prop_type_dummies)
 ```
@@ -301,7 +308,9 @@ head(prop_type_dummies)
 house %>%
     select(ZipCode) %>%
     table()
+```
 
+```{r}
 zip_groups <- house %>%
     mutate(residuals = residuals(house_lm)) %>%
     summarize(
@@ -320,7 +329,9 @@ house2 <- house %>%
     left_join(select(zip_groups, ZipCode, zipgroup), by = "ZipCode")
 
 house2
+```
 
+```{r}
 zip_groups %>% 
     select(zipgroup) %>% 
     table()
@@ -385,12 +396,16 @@ lm_98105 <- lm(
 )
 
 summary(lm_98105)
+```
 
+```{r}
 sresid <- rstandard(lm_98105)
 idx    <- order(sresid, decreasing = FALSE)
 sresid[idx[1]]
 resid(lm_98105)[idx[1]]
+```
 
+```{r}
 house_98105[
     idx[1],
     c("AdjSalePrice", "SqFtTotLiving", "SqFtLot", "Bathrooms", "Bedrooms", "BldgGrade")
@@ -414,14 +429,16 @@ tibble(x, y) %>%
     geom_point() +
     geom_abline(intercept = model$coefficients[1],  slope = model$coefficients[2],  col = "blue") +
     geom_abline(intercept = model2$coefficients[1], slope = model2$coefficients[2], col = "red") +
-    scale_x_continuous(breaks = seq(0, 8, by = 2)) +
+    scale_x_continuous(breaks = seq( 0, 8, by = 2)) +
     scale_y_continuous(breaks = seq(-2, 8, by = 2)) +
     labs(
         x = NULL,
         y = NULL
     ) +
     theme_classic()
+```
 
+```{r}
 # influential observations
 house_98105_augmented <- house_98105 %>%
     mutate(
@@ -439,7 +456,7 @@ house_98105_augmented %>%
         data  = house_98105_augmented %>% filter(cooks_D > 0.08)
     ) +
     geom_hline(yintercept = c(-2.5, 2.5), linetype = "dashed") +
-    scale_size(range = c(1, 20 * sqrt(max(cooks_D)))) +
+    scale_size(range = c(1, 20 * sqrt(max(house_98105_augmented$cooks_D)))) +
     scale_x_continuous(
         breaks = seq(0.05, 0.25, by = 0.05),
         expand = c(0, 0),
@@ -456,7 +473,9 @@ house_98105_augmented %>%
     theme(
         legend.position = "none"
     )
+```
 
+```{r}
 lm_98105_inf <- lm(
     AdjSalePrice ~ SqFtTotLiving + SqFtLot + Bathrooms +  Bedrooms + BldgGrade,
     data = house_98105_augmented %>% filter(cooks_D < 0.08)
@@ -484,13 +503,14 @@ graph <- tbl %>%
     ) +
     scale_y_continuous(
         breaks = seq(0, 1000000, by = 250000),
-        expand = c(0, 0),
         limits = c(0, 1000000)
     ) +
     theme_classic()
 
 graph
+```
 
+```{r}
 std_resid <- rstandard(lm_98105)
 
 std_resid %>%
@@ -498,7 +518,8 @@ std_resid %>%
     ggplot(aes(value)) +
     geom_histogram(bins = 11, fill = "white", color = "black") +
     scale_x_continuous(
-        breaks = seq(-4, 6, by = 2)
+        breaks = seq(-4, 6, by = 2),
+        expand = c(0,0)
     ) +
     scale_y_continuous(
         breaks = seq(0, 160, by = 20),
@@ -534,6 +555,7 @@ graph <- tbl %>%
         method   = "loess"
     ) + 
     geom_line(aes(SqFtTotLiving, Terms)) + 
+    scale_x_continuous(expand = c(0, 0)) +
     scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
     theme_classic()
 
@@ -550,8 +572,11 @@ lm_poly <- lm(
 
 terms         <- predict(lm_poly, type = "terms")
 partial_resid <- resid(lm_poly) + terms
-lm_poly
 
+lm_poly
+```
+
+```{r}
 tbl <- tibble(
     SqFtTotLiving = house_98105 %>% pull(SqFtTotLiving),
     Terms         = terms %>% as_tibble() %>% pull(1),
@@ -568,6 +593,7 @@ graph <- tbl %>%
         method   = "loess"
     ) + 
     geom_line(aes(SqFtTotLiving, Terms)) +
+    scale_x_continuous(expand = c(0,0)) +
     scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
     theme_classic()
 
@@ -588,14 +614,16 @@ lm_spline <- lm(
 )
 
 lm_spline
+```
 
+```{r}
 terms1         <- predict(lm_spline, type = "terms")
 partial_resid1 <- resid(lm_spline) + terms1
 
 tbl1 <- tibble(
     SqFtTotLiving = house_98105 %>% pull("SqFtTotLiving"),
-    Terms = terms1 %>% as_tibble() %>% pull(1),
-    PartialResid = partial_resid1 %>% as_tibble() %>% pull(1)
+    Terms         = terms1 %>% as_tibble() %>% pull(1),
+    PartialResid  = partial_resid1 %>% as_tibble() %>% pull(1)
 )
 
 graph <- tbl1 %>% 
@@ -608,6 +636,7 @@ graph <- tbl1 %>%
         method   = "loess"
     ) + 
     geom_line(aes(SqFtTotLiving, Terms)) +
+    scale_x_continuous(expand = c(0,0)) +
     scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
     theme_classic()
 
@@ -626,7 +655,9 @@ terms         <- predict.gam(lm_gam, type = "terms")
 partial_resid <- resid(lm_gam) + terms
 
 lm_gam
+```
 
+```{r}
 tbl <- tibble(
     SqFtTotLiving = house_98105 %>% pull(SqFtTotLiving),
     Terms         = terms %>% as_tibble() %>% pull(5),
@@ -643,6 +674,7 @@ graph <- tbl %>%
         method   = "loess"
     ) + 
     geom_line(aes(SqFtTotLiving, Terms)) +
+    scale_x_continuous(expand = c(0,0)) +
     scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
     theme_classic()
 
