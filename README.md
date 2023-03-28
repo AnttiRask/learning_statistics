@@ -12,7 +12,7 @@ So why have my own version of the code for something already available through t
 2. __Readability__: I take readability seriously. I try to adhere to the [Tidyverse Style Guide](https://style.tidyverse.org/), but I don't claim to be perfect about it. Always room to grow!
 3. __Tidyverse__: Although some code is already written with __{tidyverse}__, I've translated the rest of the base R code to a tidier format. Where it was possible and/or made sense, that is. I've taken special care to recreate the plots using __{ggplot2}__ instead of the _plot()_ function from base R.
 
-Although I like the [__{tidymodels}__](https://www.tidymodels.org/) framework, I decided not to use it for the Machine Learning (ML) examples in this book. You know, to keep the focus on the statistics part. If you're interested, check out my other repo, [Learning Machine Learning](https://github.com/AnttiRask/learning_machine_learning).
+Although I like the [__{tidymodels}__](https://www.tidymodels.org/) framework, I decided not to use it for the Machine Learning (ML) examples in this book. You know, to keep the focus on the statistics part. But if you're interested in {tidymodels}, check out my other repo, [Learning Machine Learning](https://github.com/AnttiRask/learning_machine_learning).
 
 ## Disclaimer!
 This repo is not meant to replace the book in any way. You should definitely read the book. It will help you understand the concepts much better than looking at the code or playing with it.
