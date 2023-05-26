@@ -100,7 +100,8 @@ nearest_points
 ```
 
 ```{r}
-dist <- attr(knn_pred, "nn.dist") %>% as.vector()
+dist <- attr(knn_pred, "nn.dist") %>%
+    as.vector()
 
 circleFun <- function(
         center  = c(0, 0),
@@ -137,7 +138,7 @@ head(loan200_tbl)
 ```
 
 ```{r}
-graph <- loan200_tbl %>% 
+loan200_tbl %>% 
     ggplot(aes(payment_inc_ratio, dti, color = outcome)) +
     geom_point(aes(shape = outcome), size = 2, alpha = 0.4) +
     geom_point(data = nearest_points, aes(shape = outcome), size = 2) +
@@ -161,15 +162,14 @@ graph <- loan200_tbl %>%
         xlim = c(3, 15),
         ylim = c(17, 29)
     ) +
-    theme_classic() 
-
-graph
+    theme_classic()
 ```
 
 ### Standardization (Normalization, Z-Scores)
 
 ```{r}
 loan_tbl <- model.matrix(~ -1 + payment_inc_ratio + dti + revol_bal + revol_util, data = loan_data) %>% as_tibble()
+
 newloan  <- loan_tbl %>% slice(1)
 
 newloan
@@ -177,7 +177,10 @@ newloan
 
 ```{r}
 loan_tbl2 <- loan_tbl  %>% slice(-1)
-outcome   <- loan_data %>% slice(-1) %>% pull(outcome)
+
+outcome   <- loan_data %>% slice(-1) %>%
+    pull(outcome)
+
 knn_pred  <- knn(train = loan_tbl2, test = newloan, cl = outcome, k = 5)
 
 loan_tbl2[as.vector(attr(knn_pred, "nn.index")),]
@@ -299,7 +302,7 @@ labs <- tibble(
 )
 
 # With different linetypes
-graph <- loan3000 %>% 
+loan3000 %>% 
     ggplot(aes(borrower_score, payment_inc_ratio)) +
     geom_point(aes(color = outcome, shape = outcome), alpha = 0.5) +
     scale_color_manual(values=c("blue", "red")) +
@@ -318,13 +321,11 @@ graph <- loan3000 %>%
     coord_cartesian(ylim = c(0, 25)) +
     geom_label(data = labs, aes(x, y, label = decision)) +
     theme_classic()
-
-graph
 ```
 
 ```{r}
 # With labels
-graph <- loan3000 %>% 
+loan3000 %>% 
     ggplot(aes(borrower_score, payment_inc_ratio)) +
     geom_point(aes(color = outcome, shape = outcome, size = outcome), alpha = 0.8) +
     scale_color_manual(values = c("paid off" = "#7fbc41", "default" = "#d95f02")) +
@@ -350,8 +351,6 @@ graph <- loan3000 %>%
         label.padding = unit(0.2, "lines")) +
     guides(color = guide_legend(override.aes = list(linewidth = 2))) +
     theme_classic()
-
-graph
 ```
 
 ### Measuring Homogeneity or Impurity
@@ -429,7 +428,7 @@ error_tbl = tibble(
     num_trees  = 1:rf$ntree
 )
 
-graph <- error_tbl %>% 
+error_tbl %>% 
     ggplot(aes(num_trees, error_rate)) +
     geom_line(linewidth = 0.6) +
     scale_x_continuous(
@@ -437,8 +436,6 @@ graph <- error_tbl %>%
         expand = c(0.01, 0)
     ) +
     theme_classic()
-
-graph
 ```
 
 ```{r}
@@ -575,7 +572,7 @@ long_data <- long_data %>%
     )
 
 # Create the facet plot
-facet_plot <- long_data %>% 
+long_data %>% 
     ggplot(aes(reorder(variable, sort_var), importance)) +
     geom_point() +
     coord_flip() +
@@ -589,8 +586,6 @@ facet_plot <- long_data %>%
         y     = "Importance"
     ) +
     theme_classic()
-
-facet_plot
 ```
 
 ### search over hyperparameter space (not in book); this takes a while
@@ -649,7 +644,7 @@ pred    <- predict(xgb, newdata = predictors)
 xgb_tbl <- cbind(loan3000, pred_default = pred > 0.5, prob_default = pred) %>% 
     as_tibble()
 
-graph <- xgb_tbl %>% 
+xgb_tbl %>% 
     ggplot(aes(borrower_score, payment_inc_ratio, color = pred_default, shape = pred_default)) +
     geom_point(alpha = 0.6, size = 2) +
     scale_shape_manual(values = c(0, 1)) +
@@ -657,13 +652,19 @@ graph <- xgb_tbl %>%
     scale_y_continuous(expand = c(0, 0)) + 
     coord_cartesian(ylim = c(0, 20)) +
     theme_classic()
-
-graph
 ```
 
 ```{r}
-graph <- xgb_tbl %>% 
-    ggplot(aes(borrower_score, payment_inc_ratio, color = pred_default, shape = pred_default, size = pred_default)) +
+xgb_tbl %>% 
+    ggplot(
+        aes(
+            borrower_score,
+            payment_inc_ratio,
+            color = pred_default,
+            shape = pred_default,
+            size  = pred_default
+        )
+    ) +
     geom_point(alpha = 0.8) +
     scale_color_manual(values = c("FALSE" = "#b8e186", "TRUE" = "#d95f02")) +
     scale_shape_manual(values = c("FALSE" = 0,         "TRUE" = 1)) +
@@ -672,9 +673,7 @@ graph <- xgb_tbl %>%
     scale_y_continuous(expand = c(0, 0)) + 
     coord_cartesian(ylim = c(0, 20)) +
     guides(color = guide_legend(override.aes = list(size = 2))) +
-    theme_classic()
-
-graph
+    theme_classic() 
 ```
 
 ### Regularization: Avoiding Overfitting
@@ -762,7 +761,7 @@ errors <- rbind(
 errors$type <- rep(c("default train", "penalty train", "default test", "penalty test"), rep(250, 4))
 
 # Create the graph
-graph <- errors %>% 
+errors %>% 
     ggplot(aes(iter, train_error, group = type)) +
     geom_line(aes(linetype = type, color = type), linewidth = 1) +
     scale_linetype_manual(values = c("solid", "dashed", "dotted", "longdash")) +
@@ -775,8 +774,6 @@ graph <- errors %>%
     theme_classic() +
     theme(legend.key.width = unit(1.5, "cm")) +
     guides(color = guide_legend(override.aes = list(size = 1)))
-
-graph
 ```
 
 ### Hyperparameters and Cross-Validation
@@ -832,7 +829,6 @@ avg_error <- models_folds %>%
         .groups = "drop"
     )
 
-result <- cbind(params, avg_error) %>% as_tibble()
-
-result
+cbind(params, avg_error) %>%
+    as_tibble()
 ```

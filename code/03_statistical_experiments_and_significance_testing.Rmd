@@ -36,13 +36,11 @@ imanishi      <- read.csv("../data/imanishi_data.csv") %>%
 ### Example: Web Stickiness
 
 ```{r}
-graph <- session_times %>%
+session_times %>%
     ggplot(aes(Page, Time)) +
     geom_boxplot() +
     labs(y = "Time (in seconds)") +
     theme_classic()
-
-graph
 ```
 
 ```{r}
@@ -109,7 +107,9 @@ perm_diffs %>%
         title = ""
     ) +
     theme_classic()
+```
 
+```{r}
 mean(perm_diffs > (mean_b - mean_a))
 ```
 
@@ -133,7 +133,7 @@ perm_diffs %>%
     as_tibble() %>%
     ggplot(aes(value)) +
     geom_histogram(bins = 11, fill = "white", col = "black") +
-    geom_vline(xintercept = obs_pct_diff, linetype = "dashed", size = 1.5) +
+    geom_vline(xintercept = obs_pct_diff, linetype = "dashed", linewidth = 1.5) +
     scale_x_continuous(expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0)) +
     annotate(
@@ -152,7 +152,9 @@ perm_diffs %>%
         title = ""
     ) +
     theme_classic()
+```
 
+```{r}
 # Print the observed difference
 obs_pct_diff
 ```
@@ -161,7 +163,9 @@ obs_pct_diff
 
 ```{r}
 mean(perm_diffs > obs_pct_diff)
+```
 
+```{r}
 prop.test(x = c(200, 182), n = c(23739, 22588), alternative = "greater")
 ```
 
@@ -174,13 +178,11 @@ t.test(Time ~ Page, data = session_times, alternative = "less")
 ## ANOVA
 
 ```{r}
-graph <- four_sessions %>% 
+four_sessions %>% 
     ggplot(aes(Page, Time)) + 
     geom_boxplot() +
     labs(y = "Time (in seconds)") +
     theme_classic()
-
-graph
 ```
 
 ```{r}
@@ -223,7 +225,7 @@ chi <- data.frame(
 ) %>%
     as_tibble()
 
-graph <- chi %>% 
+chi %>% 
     ggplot(aes(x, p)) +
     geom_line(aes(linetype = df)) +
     geom_text(aes(x = 25,  y = 0.06, label = "df=20"), size = 2.5) +
@@ -237,9 +239,6 @@ graph <- chi %>%
     ) +
     theme_classic() +
     theme(legend.position = "none")
-    
-
-graph
 ```
 
 ### Fisher's Exact Test
@@ -252,13 +251,11 @@ fisher.test(clicks)
 
 ```{r}
 # Code for Figure 3-8
-graph <- imanishi %>% 
+imanishi %>% 
     ggplot(aes(Digit, Frequency)) +
     geom_bar(stat = "identity") +
     scale_y_continuous(expand = c(0, 0)) +
     theme_classic()
-
-graph
 ```
 
 ## Power and Sample Size

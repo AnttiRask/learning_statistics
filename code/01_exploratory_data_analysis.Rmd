@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(conflicted)
+    conflicts_prefer(dplyr::count)
     conflicts_prefer(dplyr::filter)
 library(corrr)
 library(crosstable)
@@ -87,7 +88,9 @@ population %>% mad()
 murder_rate %>%
     quantile(p = c(0.05, 0.25, 0.5, 0.75, 0.95)) %>%
     as_tibble(rownames = "percentile")
+```
 
+```{r}
 state %>% 
     ggplot(aes(Population / 1000000)) +
     geom_boxplot() +
@@ -110,7 +113,9 @@ cut_interval(
         bin_range = ".",
         count     = n
     )
+```
 
+```{r}
 # If we just want to add the bin_range to the state tibble (we do lose the empty bins!):
 state %>% 
     mutate(
@@ -207,7 +212,9 @@ telecom_cor <- telecom %>%
     correlate()
 
 telecom_cor
+```
 
+```{r}
 # Next we focus on funds traded on major exchanges (sector == 'etf')
 etfs_vec <- sp500_sym %>%
     filter(sector == "etf") %>%
@@ -261,46 +268,44 @@ kc_tax0 <- kc_tax %>%
         SqFtTotLiving    < 3500
     )
 
-nrow(kc_tax0)
+count(kc_tax0)
 ```
 
 ## Hexagonal Binning and Contours
 
 ```{r}
 # Plotting numeric versus numeric data
-graph <- kc_tax0 %>% 
+kc_tax0 %>% 
     ggplot(aes(SqFtTotLiving, TaxAssessedValue)) + 
     stat_binhex(color = "white") +
     scale_fill_gradient(
         low  = "white",
         high = "blue"
     ) +
+    scale_y_continuous(labels = label_dollar()) +
     labs(
         x = "Finished Square Feet",
         y = "Tax-Assessed Value"
     ) +
     theme_classic()
-
-graph
 ```
 
 ## Visualize as a Two-Dimensional Extension of the Density Plot
 
 ```{r}
-graph_2 <- kc_tax0 %>% 
+kc_tax0 %>% 
     ggplot(aes(SqFtTotLiving, TaxAssessedValue)) +
     geom_point(
         color = "blue",
         alpha = 0.1
     ) +
     geom_density2d(color = "white") +
+    scale_y_continuous(labels = label_dollar()) +
     labs(
         x = "Finished Square Feet",
         y = "Tax-Assessed Value"
     ) +
     theme_classic()
-
-graph_2
 ```
 
 ## Two Categorical Variables
@@ -342,7 +347,7 @@ airline_stats %>%
 
 ```{r}
 # Variation of boxplots called _violinplot_.
-graph_3 <- airline_stats %>% 
+airline_stats %>% 
     ggplot(aes(airline, pct_carrier_delay)) +
     geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), linetype = 2) +
     geom_violin(fill = NA, linewidth = 1.1) +
@@ -352,24 +357,21 @@ graph_3 <- airline_stats %>%
         y = "Daily % of Delayed Flights"
     ) +
     theme_classic()
-
-graph_3
 ```
 
 ## Visualizing Multiple Variables
 
 ```{r}
-graph_4 <- kc_tax0 %>%
+kc_tax0 %>%
     filter(ZipCode %in% c(98188, 98105, 98108, 98126)) %>%
     ggplot(aes(SqFtTotLiving, TaxAssessedValue)) +
     stat_binhex(color = "white") +
     facet_wrap(vars(ZipCode)) +
     scale_fill_gradient(low = "gray95", high = "black") +
+    scale_y_continuous(labels = label_dollar()) +
     labs(
         x = "Finished Square Feet",
         y = "Tax-Assessed Value"
     ) +
     theme_classic()
-
-graph_4
 ```

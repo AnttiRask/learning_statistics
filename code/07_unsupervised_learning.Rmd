@@ -15,8 +15,9 @@ knitr::opts_chunk$set(echo = TRUE)
 library(ca)
 library(cluster)
 library(conflicted)
-    conflicts_prefer(dplyr::filter)
+conflicts_prefer(dplyr::filter)
 library(ellipse)
+library(gghighlight)
 library(ggrepel)
 library(mclust)
 library(tidyverse)
@@ -51,7 +52,7 @@ loadings
 ```
 
 ```{r}
-graph <- oil_px %>% 
+oil_px %>% 
     ggplot(aes(CVX, XOM)) +
     geom_point(alpha = 0.3) +
     scale_shape_manual(values = c(46)) +
@@ -72,8 +73,6 @@ graph <- oil_px %>%
     scale_y_continuous(expand = c(0.01, 0.01)) +
     coord_cartesian(xlim = c(-3, 3), ylim = c(-3, 3)) +
     theme_classic()
-
-graph
 ```
 
 ### Interpreting principal components
@@ -103,8 +102,27 @@ top_sp <- sp500_px %>%
     select(one_of(syms))
 
 sp_pca <- princomp(top_sp)
-par(mar = c(6, 3, 0, 0) + 0.1, las = 2)
-screeplot(sp_pca, main = "")
+
+# Extract the eigenvalues from the PCA object
+eigenvalues <- sp_pca$sdev^2
+
+# Create a data frame with the eigenvalues
+scree_data <- tibble(
+    Components = 1:length(eigenvalues),
+    Eigenvalue = eigenvalues
+)
+
+# Plot the scree plot using ggplot
+ggplot(scree_data, aes(x = Components, y = Eigenvalue)) +
+    geom_point(size = 3) +
+    geom_line() +
+    scale_x_continuous(breaks = seq(1, 16, by = 1)) +
+    labs(
+        x     = "Component",
+        y     = "Eigenvalue",
+        title = "Scree Plot"
+    ) +
+    theme_classic()
 ```
 
 ```{r}
@@ -115,7 +133,7 @@ loadings <- sp_pca$loadings[,1:5] %>%
 loadings_tbl <- gather(loadings, Component, Weight, -Symbol) %>% 
     mutate(Color = .$Weight > 0)
 
-graph <- loadings_tbl %>% 
+loadings_tbl %>% 
     ggplot(aes(Symbol, Weight, fill = Color)) +
     geom_bar(stat = "identity", position = "identity", width = 0.75) + 
     facet_grid(Component ~ ., scales = "free_y") +
@@ -126,50 +144,52 @@ graph <- loadings_tbl %>%
         axis.title.x = element_blank(),
         axis.text.x  = element_text(angle = 90, vjust = 0.5)
     )
-
-graph
 ```
 
 ### Correspondence analysis
 
 ```{r}
 ca_analysis <- ca(housetasks)
-plot(ca_analysis)
-```
+contrib     <- ca_analysis$sv ** 2
+contrib     <- contrib / sum(contrib)
 
-```{r}
-ca_analysis$sv ** 2
-summary(ca_analysis)
-```
+# Get the row and column coordinates from the correspondence analysis
+row_coords <- as.data.frame(ca_analysis$rowcoord)
+col_coords <- as.data.frame(ca_analysis$colcoord)
 
-```{r}
-contrib  <- ca_analysis$sv ** 2
-contrib  <- contrib / sum(contrib)
-colcoord <- as.data.frame(ca_analysis$colcoord)
-rowcoord <- as.data.frame(ca_analysis$rowcoord)
-coords   <- rbind(
-    cbind(rowcoord, type = "rowcoord"),
-    cbind(colcoord, type = "columns")
-) %>%
-    rownames_to_column(var = "row_name") %>%
-    mutate(row_name = str_replace_all(row_name, "_", " ")) %>%
-    column_to_rownames(var = "row_name")
+# Combine row and column coordinates into a single data frame
+coords <- rbind(
+    cbind(row_coords, Type = "Row"),
+    cbind(col_coords, Type = "Column")
+)
 
-graph <- coords %>%
-    ggplot(aes(Dim1, Dim2, color = type, label = rownames(coords), shape = type)) +
-    geom_hline(yintercept = 0, linetype = "dotted", color = "#444444") + 
-    geom_vline(xintercept = 0, linetype = "dotted", color = "#444444") +
+# Plot the correspondence analysis results using ggplot
+ggplot(coords, aes(Dim1, Dim2, label = rownames(coords), color = Type, shape = Type)) +
     geom_point() +
-    geom_text_repel() +
+    geom_text_repel(
+        nudge_x = 0.1,
+        nudge_y = 0.1,
+        size    = 3
+    ) +
+    geom_hline(yintercept = 0, linetype = "dotted", color = "#444444") +
+    geom_vline(xintercept = 0, linetype = "dotted", color = "#444444") +
+    scale_color_manual(values = c("blue", "red")) +
     labs(
         x = sprintf("Dimension 1 (%.1f%%)", 100 * contrib[1]),
         y = sprintf("Dimension 2 (%.1f%%)", 100 * contrib[2])
     ) +
-    scale_color_manual(values = c("blue", "red")) +
     theme_classic() +
-    theme(legend.position = "none")
+    theme(
+        legend.position = "none"
+    )
+```
 
-graph
+```{r}
+ca_analysis$sv ** 2
+```
+
+```{r}
+summary(ca_analysis)
 ```
 
 ## K-Means Clustering
@@ -201,7 +221,7 @@ centers
 ```
 
 ```{r}
-graph <- tbl_with_clusters %>% 
+tbl_with_clusters %>% 
     ggplot(aes(XOM, CVX, color = cluster, shape = cluster)) +
     geom_point() +
     scale_shape_manual(
@@ -212,8 +232,6 @@ graph <- tbl_with_clusters %>%
     scale_y_continuous(expand = c(0, 0)) +
     coord_cartesian(xlim = c(-2, 2), ylim = c(-2.5, 2.5)) +
     theme_classic()
-
-graph
 ```
 
 ### K-Means Algorithm
@@ -238,7 +256,7 @@ centers$Symbol <- row.names(t(km$centers))
 centers        <- gather(centers, "Cluster", "Mean", -Symbol)
 centers$Color  <- centers$Mean > 0
 
-graph <- centers %>%
+centers %>%
     ggplot(aes(Symbol, Mean, fill = Color)) +
     geom_bar(stat = "identity", position = "identity", width = 0.75) + 
     facet_grid(vars(Cluster), scales = "free_y") +
@@ -247,9 +265,8 @@ graph <- centers %>%
     theme_bw() +
     theme(
         axis.title.x = element_blank(),
-        axis.text.x  = element_text(angle = 90, vjust = 0.5))
-
-graph
+        axis.text.x  = element_text(angle = 90, vjust = 0.5)
+    )
 ```
 
 ### Selecting the Number of Clusters
@@ -264,7 +281,7 @@ pct_var <- tibble(
         ~kmeans(top_sp, centers = ., nstart = 50, iter.max = 100)$betweenss / totalss)
 )
 
-graph <- pct_var %>% 
+pct_var %>% 
     ggplot(aes(num_clusters, pct_var)) +
     geom_line() +
     geom_point() +
@@ -274,8 +291,6 @@ graph <- pct_var %>%
     ) +
     scale_x_continuous(breaks = seq(2, 14, by = 2)) +
     theme_classic()
-
-graph
 ```
 
 ## Hierarchical Clustering
@@ -346,7 +361,7 @@ tbl <- rbind(
 ) %>% 
     mutate(method = ordered(method, c("single", "average", "complete", "ward.D")))
 
-graph <- tbl %>% 
+tbl %>% 
     ggplot(aes(XOM, CVX, color = cluster, shape = cluster)) +
     geom_point(alpha = 0.6) +
     scale_shape_manual(
@@ -354,8 +369,6 @@ graph <- tbl %>%
         guide  = guide_legend(override.aes = aes(size = 2))) +
     facet_wrap(vars(method)) +
     theme_classic()
-
-graph
 ```
 
 ## Model based clustering
@@ -384,12 +397,10 @@ tbl
 ```{r}
 dfmu <- tibble(X = mu[1], Y = mu[2])
 
-graph <- tbl %>% ggplot(aes(X, Y)) + 
+tbl %>% ggplot(aes(X, Y)) + 
     geom_path(aes(linetype = Prob)) +
     geom_point(data = dfmu, aes(X, Y), size = 3) +
     theme_classic()
-
-graph
 ```
 
 ### Mixtures of Normals
@@ -406,15 +417,14 @@ summary(mcl)
 ```{r}
 cluster <- factor(predict(mcl)$classification)
 
-graph   <- tbl %>% 
+tbl %>% 
     ggplot(aes(XOM, CVX, color = cluster, shape = cluster)) +
     geom_point(alpha = 0.8) +
     theme_classic() +
     scale_shape_manual(
         values = c(1, 3),
-        guide  = guide_legend(override.aes = aes(size = 2))) 
-
-graph
+        guide  = guide_legend(override.aes = aes(size = 2))
+    )
 ```
 
 ```{r}
@@ -426,7 +436,36 @@ summary(mcl, parameters = TRUE)$variance[, , 2]
 ### Selecting the number of clusters
 
 ```{r}
-plot(mcl, what = "BIC", ask = FALSE, cex = 0.75)
+# Assuming mcl is your mclustBIC object
+bic_values <- mcl$BIC
+n          <- nrow(bic_values) 
+
+# Create a data frame
+tbl <- tibble(
+    model      = rep(colnames(bic_values), each  = n),
+    components = rep(rownames(bic_values), times = ncol(bic_values)),
+    BIC        = as.vector(bic_values)
+) %>%
+    
+    # Remove rows with NA BIC values
+    filter(!is.na(BIC)) %>% 
+    
+    # Convert components to numeric
+    mutate(components = as.numeric(components))
+
+# Create the plot
+ggplot(tbl, aes(x = components, y = BIC, color = model)) +
+    geom_line() +
+    gghighlight(use_direct_label = FALSE) +
+    facet_wrap(vars(model), nrow = 3) +
+    scale_x_continuous(breaks = seq(1, 9, by = 1)) +
+    labs(
+        title = "BIC Plot",
+        x     = "Number of components",
+        y     = "BIC value"
+    ) +
+    theme_bw() +
+    theme(legend.position = "none")
 ```
 
 ## Scaling and Categorical Variables
@@ -468,7 +507,29 @@ top_15  <- sp500_px %>%
 
 sp_pca1 <- princomp(top_15)
 
-screeplot(sp_pca1, main="")
+# Extract the eigenvalues from the PCA object
+eigenvalues <- sp_pca1$sdev^2
+
+# Create a data frame with the eigenvalues
+scree_data <- tibble(
+    Components = 1:length(eigenvalues),
+    Eigenvalue = eigenvalues
+)
+
+# Plot the scree plot using ggplot
+ggplot(scree_data, aes(x = Components, y = Eigenvalue)) +
+    geom_point(size = 3) +
+    geom_line() +
+    scale_x_continuous(
+        breaks = seq(1, 10, by = 1),
+        limits = c(1, 10)
+    ) +
+    labs(
+        x     = "Component",
+        y     = "Eigenvalue",
+        title = "Scree Plot"
+    ) +
+    theme_classic()
 ```
 
 ```{r}

@@ -402,6 +402,9 @@ summary(lm_98105)
 sresid <- rstandard(lm_98105)
 idx    <- order(sresid, decreasing = FALSE)
 sresid[idx[1]]
+```
+
+```{r}
 resid(lm_98105)[idx[1]]
 ```
 

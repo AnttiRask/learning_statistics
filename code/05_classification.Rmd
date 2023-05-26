@@ -20,6 +20,7 @@ library(klaR)
 library(MASS)
 library(mgcv)
 library(rpart)
+library(smotefamily)
 library(tidyverse)
 ```
 
@@ -92,7 +93,7 @@ less_naive$table[1:2]
 ```{r}
 stats <- less_naive$table[[1]]
 
-graph <- tibble(borrower_score = c(0,1)) %>%
+tibble(borrower_score = c(0,1)) %>%
     ggplot(aes(borrower_score)) +
     stat_function(
         fun      = dnorm,
@@ -116,8 +117,6 @@ graph <- tibble(borrower_score = c(0,1)) %>%
     scale_y_continuous(expand = c(0, 0)) +
     labs(y = "probability") +
     theme_classic()
-
-graph
 ```
 
 ## Discriminant Analysis
@@ -136,7 +135,9 @@ loan_lda$scaling
 ```{r}
 pred <- predict(loan_lda)
 
-head(pred$posterior %>% as_tibble())
+pred$posterior %>%
+    as_tibble() %>%
+    head()
 ```
 
 #### Figure 5.1
@@ -152,7 +153,7 @@ center    <- 0.5 * (loan_lda$mean[1, ] + loan_lda$mean[2, ])
 slope     <- -loan_lda$scaling[1] / loan_lda$scaling[2]
 intercept <- center[2] - center[1] * slope
 
-graph <- lda_df %>% 
+lda_df %>% 
     ggplot(
         aes(
             x     = borrower_score,
@@ -171,8 +172,6 @@ graph <- lda_df %>%
         intercept = intercept,
         color     = "darkgreen") +
     theme_classic()
-
-graph
 ```
 
 ## Logistic regression
@@ -206,7 +205,7 @@ tbl <- tibble(
     odds  = p/(1-p)
 )
 
-graph <- tbl %>% 
+tbl %>% 
     ggplot(aes(p, logit)) +
     geom_line() +
     labs(
@@ -214,8 +213,6 @@ graph <- tbl %>%
         y = "logit(p)"
     ) +
     theme_classic()
-
-graph
 ```
 
 ### Predicted Values from Logistic Regression
@@ -233,7 +230,7 @@ summary(prob)
 ### Interpreting the Coefficients and Odds Ratios
 
 ```{r}
-graph <- tbl %>% 
+tbl %>% 
     ggplot(aes(logit, odds)) +
     geom_line() +
     labs(
@@ -247,8 +244,6 @@ graph <- tbl %>%
     scale_x_continuous(expand = c(0,0)) +
     scale_y_continuous(expand = c(0,0)) +
     theme_classic()
-
-graph
 ```
 
 ### Logistic regression with splines
@@ -292,7 +287,7 @@ tbl <- tibble(
     .partial_resid
 )
 
-graph <- tbl %>%
+tbl %>%
     ggplot(aes(.payment_inc_ratio, .partial_resid, solid = FALSE)) +
     geom_point(shape = 46, alpha = 0.4) +
     geom_line(
@@ -305,16 +300,14 @@ graph <- tbl %>%
     coord_cartesian(xlim = c(0, 25)) +
     theme_classic()
 
-graph
-
 # 2
-tbl <- tibble(
+tbl2 <- tibble(
     .payment_inc_ratio,
     terms = 1 / (1 + exp(-.terms)),
     partial_resid = 1 / (1 + exp(-.partial_resid))
 )
 
-graph <- tbl %>%
+tbl2 %>%
     ggplot(aes(.payment_inc_ratio, partial_resid, solid = FALSE)) +
     geom_point(shape = 46, alpha = 0.4) +
     geom_line(
@@ -326,8 +319,6 @@ graph <- tbl %>%
     labs(y = "Partial Residual") +
     coord_cartesian(xlim = c(0, 25)) +
     theme_classic()
-
-graph
 ```
 
 ## Evaluating Classification Models
@@ -382,7 +373,7 @@ specificity <-
     (sum(true_y == 0) - cumsum(true_y[idx] == 0)) / sum(true_y == 0)
 roc_tbl     <- tibble(recall = recall, specificity = specificity)
 
-graph <- roc_tbl %>%
+roc_tbl %>%
     ggplot(aes(specificity, recall)) +
     geom_line(color = "blue") +
     scale_x_reverse(expand = c(0, 0)) +
@@ -394,8 +385,6 @@ graph <- roc_tbl %>%
         color    = "red"
     ) +
     theme_classic()
-
-graph
 ```
 
 ### AUC
@@ -409,7 +398,7 @@ head(roc_tbl)
 ```
 
 ```{r}
-graph <- roc_tbl %>%
+roc_tbl %>%
     ggplot(aes(specificity)) +
     geom_ribbon(
         aes(ymin = 0, ymax = recall),
@@ -420,8 +409,6 @@ graph <- roc_tbl %>%
     scale_y_continuous(expand = c(0, 0)) +
     labs(y = "recall") +
     theme_classic()
-
-graph
 ```
 
 ## Strategies for Imbalanced Data
@@ -487,12 +474,10 @@ full_model <- full_train_set %>%
         family = "quasibinomial"
     )
 
-pred <- full_train_set %>%
+full_train_set %>%
     add_column(pred = predict(full_model)) %>%
     summarize(mean_pred = mean(pred > 0)) %>%
     pull(mean_pred)
-
-pred
 ```
 
 ### Data Generation
@@ -500,15 +485,15 @@ pred
 ```{r}
 # There are a variety of SMOTE implementation available in R. 
 
-# The packages {unbalanced} and {DMwR} are no longer supported, however. So here's a generic example from the {smotefamily}:
-
-library(smotefamily)
+# The packages {unbalanced} and {DMwR} are no longer supported, however. So here's a generic example from the {smotefamily}
 
 data_example = sample_generator(100, ratio = 0.80)
 genData      = SMOTE(data_example[,-3], data_example[,3])
-genData_2    = SMOTE(data_example[,-3], data_example[,3], K = 7)
-
 genData
+```
+
+```{r}
+genData_2    = SMOTE(data_example[,-3], data_example[,3], K = 7)
 genData_2
 ```
 
@@ -578,7 +563,7 @@ gam1_pred <- tibble(
 
 loan_fits <- rbind(lda_pred, tree_pred, glm0_pred, gam1_pred)
 
-graph <- loan_fits %>% 
+loan_fits %>% 
     ggplot(
         aes(
             borrower_score,
@@ -591,6 +576,4 @@ graph <- loan_fits %>%
     theme(legend.key.width = unit(2, "cm")) +
     guides(linetype = guide_legend(override.aes = list(linewidth = 1))) +
     theme_classic()
-
-graph
 ```
